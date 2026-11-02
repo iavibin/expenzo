@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Wallet, User, Mail, Lock, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import DotGrid from '../components/DotGrid';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -60,8 +61,20 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-foundation-bg flex flex-col items-center justify-center p-4 sm:p-6 text-gray-200">
-      <div className="w-full max-w-sm bg-foundation-surface border border-foundation-border rounded-xl p-6 sm:p-8 shadow-xl">
+    <div className="relative min-h-screen bg-foundation-bg flex flex-col items-center justify-center p-4 sm:p-6 text-gray-200 overflow-hidden">
+      {/* React Bits Dot Grid Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <DotGrid
+          dotSize={3}
+          gap={24}
+          baseColor="#263445"
+          activeColor="#14b8a6"
+          proximity={120}
+          opacity={0.35}
+        />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm bg-foundation-surface border border-foundation-border rounded-xl p-6 sm:p-8 shadow-xl">
         <div className="flex flex-col items-center text-center">
           <div className="w-10 h-10 rounded-lg bg-brand-teal/15 border border-brand-teal/30 flex items-center justify-center text-brand-tealLight mb-3">
             <Wallet className="w-5 h-5" />
@@ -167,7 +180,7 @@ export default function Register() {
         </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-4 text-[11px] text-gray-500">
+      <div className="relative z-10 mt-6 flex items-center gap-4 text-[11px] text-gray-500">
         <Link to="/terms" className="hover:text-gray-300 transition-colors">
           Terms of Service
         </Link>

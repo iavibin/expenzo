@@ -151,6 +151,48 @@ public class DatabaseManager {
             System.err.println("Warning: Failed to upgrade user password to BCrypt hash: " + e.getMessage());
         }
     }
+
+    public static boolean updateUserName(int userId, String newName) throws SQLException {
+        String sql = "UPDATE users SET name = ? WHERE user_id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newName.trim());
+            ps.setInt(2, userId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    public static boolean changePassword(int userId, String currentPassword, String newPassword) throws SQLException {
+        String sql = "SELECT password FROM users WHERE user_id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String storedPassword = rs.getString("password");
+                    boolean matches = false;
+                    if (storedPassword != null && (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$"))) {
+                        matches = org.mindrot.jbcrypt.BCrypt.checkpw(currentPassword, storedPassword);
+                    } else if (storedPassword != null && storedPassword.equals(currentPassword)) {
+                        matches = true;
+                    }
+
+                    if (!matches) {
+                        return false;
+                    }
+
+                    String newHash = org.mindrot.jbcrypt.BCrypt.hashpw(newPassword, org.mindrot.jbcrypt.BCrypt.gensalt(12));
+                    String updateSql = "UPDATE users SET password = ? WHERE user_id = ?";
+                    try (PreparedStatement updatePs = conn.prepareStatement(updateSql)) {
+                        updatePs.setString(1, newHash);
+                        updatePs.setInt(2, userId);
+                        return updatePs.executeUpdate() > 0;
+                    }
+                }
+            }
+        }
+        return false;
+    }
     //  Categories
     public static java.util.List<com.expensetracker.model.Category> getAllCategories(int userId) throws SQLException {
         java.util.List<com.expensetracker.model.Category> categories = new java.util.ArrayList<>();

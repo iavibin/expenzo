@@ -58,9 +58,17 @@ public class ReportController implements HttpHandler {
         }
     }
 
-    private void handleMonthlyReport(HttpExchange exchange, SessionManager.UserSession session) throws IOException {
-        Map<String, String> query = HttpUtil.parseQueryParams(exchange.getRequestURI());
+    private static class MonthYear {
+        final int month;
+        final int year;
 
+        MonthYear(int month, int year) {
+            this.month = month;
+            this.year = year;
+        }
+    }
+
+    private MonthYear parseMonthAndYear(HttpExchange exchange, Map<String, String> query) throws IOException {
         LocalDate now = LocalDate.now();
         int month = now.getMonthValue();
         int year = now.getYear();
@@ -70,11 +78,11 @@ public class ReportController implements HttpHandler {
                 month = Integer.parseInt(query.get("month").trim());
                 if (month < 1 || month > 12) {
                     HttpUtil.sendError(exchange, 400, "Month must be between 1 and 12.");
-                    return;
+                    return null;
                 }
             } catch (NumberFormatException e) {
                 HttpUtil.sendError(exchange, 400, "Invalid month parameter.");
-                return;
+                return null;
             }
         }
 
@@ -83,13 +91,26 @@ public class ReportController implements HttpHandler {
                 year = Integer.parseInt(query.get("year").trim());
                 if (year < 2000 || year > 2100) {
                     HttpUtil.sendError(exchange, 400, "Year must be between 2000 and 2100.");
-                    return;
+                    return null;
                 }
             } catch (NumberFormatException e) {
                 HttpUtil.sendError(exchange, 400, "Invalid year parameter.");
-                return;
+                return null;
             }
         }
+
+        return new MonthYear(month, year);
+    }
+
+    private void handleMonthlyReport(HttpExchange exchange, SessionManager.UserSession session) throws IOException {
+        Map<String, String> query = HttpUtil.parseQueryParams(exchange.getRequestURI());
+
+        MonthYear my = parseMonthAndYear(exchange, query);
+        if (my == null) {
+            return;
+        }
+        int month = my.month;
+        int year = my.year;
 
         try {
             int userId = session.getUserId();
@@ -135,35 +156,12 @@ public class ReportController implements HttpHandler {
     private void handleExportCsv(HttpExchange exchange, SessionManager.UserSession session) throws IOException {
         Map<String, String> query = HttpUtil.parseQueryParams(exchange.getRequestURI());
 
-        LocalDate now = LocalDate.now();
-        int month = now.getMonthValue();
-        int year = now.getYear();
-
-        if (query.containsKey("month") && !query.get("month").trim().isEmpty()) {
-            try {
-                month = Integer.parseInt(query.get("month").trim());
-                if (month < 1 || month > 12) {
-                    HttpUtil.sendError(exchange, 400, "Month must be between 1 and 12.");
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                HttpUtil.sendError(exchange, 400, "Invalid month parameter.");
-                return;
-            }
+        MonthYear my = parseMonthAndYear(exchange, query);
+        if (my == null) {
+            return;
         }
-
-        if (query.containsKey("year") && !query.get("year").trim().isEmpty()) {
-            try {
-                year = Integer.parseInt(query.get("year").trim());
-                if (year < 2000 || year > 2100) {
-                    HttpUtil.sendError(exchange, 400, "Year must be between 2000 and 2100.");
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                HttpUtil.sendError(exchange, 400, "Invalid year parameter.");
-                return;
-            }
-        }
+        int month = my.month;
+        int year = my.year;
 
         try {
             List<Expense> expenses = DatabaseManager.getExpensesForMonth(session.getUserId(), year, month);

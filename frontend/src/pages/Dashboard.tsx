@@ -34,18 +34,9 @@ import { budgetService } from '../services/budgetService';
 import { AnalyticsSummary, BudgetAlert } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatDate, getCurrentMonthAndYear } from '../utils/dateUtils';
+import { CHART_COLORS } from '../utils/chartColors';
 import { Link } from 'react-router-dom';
-
-const CHART_COLORS = [
-  '#14b8a6', // Deep Teal
-  '#38bdf8', // Sky
-  '#6366f1', // Slate Indigo
-  '#f59e0b', // Amber
-  '#ec4899', // Rose-Pink
-  '#10b981', // Emerald
-  '#8b5cf6', // Violet
-  '#64748b', // Slate Neutral
-];
+import DotGrid from '../components/DotGrid';
 
 export default function Dashboard() {
   const current = getCurrentMonthAndYear();
@@ -101,17 +92,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-foundation-bg">
-      <Header
-        title="Financial Dashboard"
-        subtitle="Real-time spending overview and budget tracking"
-        month={month}
-        year={year}
-        onMonthChange={setMonth}
-        onYearChange={setYear}
-      />
+    <div className="relative flex-1 flex flex-col min-h-0 bg-foundation-bg overflow-hidden">
+      {/* React Bits Dot Grid Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <DotGrid
+          dotSize={3}
+          gap={24}
+          baseColor="#263445"
+          activeColor="#14b8a6"
+          proximity={120}
+          opacity={0.35}
+        />
+      </div>
 
-      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8">
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
+        <Header
+          title="Financial Dashboard"
+          subtitle="Real-time spending overview and budget tracking"
+          month={month}
+          year={year}
+          onMonthChange={setMonth}
+          onYearChange={setYear}
+        />
+
+        <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8">
         {error && (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -304,15 +308,20 @@ export default function Dashboard() {
                             ))}
                           </Pie>
                           <Tooltip
+                            position={{ y: 8 }}
+                            wrapperStyle={{ zIndex: 40, pointerEvents: 'none' }}
+                            allowEscapeViewBox={{ x: false, y: true }}
                             contentStyle={{
                               backgroundColor: '#1a2230',
                               borderColor: '#263345',
                               borderRadius: '8px',
                               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-                              padding: '8px 12px',
+                              padding: '6px 12px',
                               fontSize: '12px',
-                              color: '#f1f5f9',
+                              color: '#FFFFFF',
                             }}
+                            itemStyle={{ color: '#FFFFFF' }}
+                            labelStyle={{ color: '#FFFFFF' }}
                             formatter={(value: unknown, name: unknown) => [
                               formatCurrency(Number(value)),
                               String(name),
@@ -322,7 +331,7 @@ export default function Dashboard() {
                       </ResponsiveContainer>
 
                       {/* Central Total KPI */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-10">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                           Total Spent
                         </span>
@@ -616,6 +625,7 @@ export default function Dashboard() {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }

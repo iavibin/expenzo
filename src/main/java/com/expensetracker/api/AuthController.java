@@ -22,6 +22,15 @@ public class AuthController implements HttpHandler {
         public String password;
     }
 
+    public static class ChangePasswordRequest {
+        public String currentPassword;
+        public String newPassword;
+    }
+
+    public static class UpdateProfileRequest {
+        public String name;
+    }
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if (HttpUtil.handlePreflight(exchange)) {
@@ -40,6 +49,10 @@ public class AuthController implements HttpHandler {
                 handleLogout(exchange);
             } else if ("/api/auth/me".equals(path) && "GET".equals(method)) {
                 handleMe(exchange);
+            } else if ("/api/auth/change-password".equals(path) && "POST".equals(method)) {
+                handleChangePassword(exchange);
+            } else if ("/api/auth/profile".equals(path) && ("PUT".equals(method) || "POST".equals(method))) {
+                handleUpdateProfile(exchange);
             } else {
                 HttpUtil.sendError(exchange, 404, "Endpoint not found: " + method + " " + path);
             }
@@ -156,6 +169,91 @@ public class AuthController implements HttpHandler {
         data.put("email", session.getEmail());
 
         HttpUtil.sendJsonResponse(exchange, 200, ApiResponse.ok("User profile retrieved", data));
+    }
+
+    private void handleChangePassword(HttpExchange exchange) throws IOException {
+        SessionManager.UserSession session = SessionManager.authenticate(exchange);
+        if (session == null) {
+            HttpUtil.sendError(exchange, 401, "Unauthorized: Please log in.");
+            return;
+        }
+
+        String body = HttpUtil.readRequestBody(exchange);
+        ChangePasswordRequest req;
+        try {
+            req = JsonUtil.fromJson(body, ChangePasswordRequest.class);
+        } catch (Exception e) {
+            HttpUtil.sendError(exchange, 400, "Invalid JSON request body");
+            return;
+        }
+
+        if (req == null || req.currentPassword == null || req.currentPassword.isEmpty() ||
+            req.newPassword == null || req.newPassword.isEmpty()) {
+            HttpUtil.sendError(exchange, 400, "Current password and new password are required.");
+            return;
+        }
+
+        if (req.newPassword.length() < 4) {
+            HttpUtil.sendError(exchange, 400, "New password must be at least 4 characters long.");
+            return;
+        }
+
+        try {
+            boolean success = DatabaseManager.changePassword(session.getUserId(), req.currentPassword, req.newPassword);
+            if (!success) {
+                HttpUtil.sendError(exchange, 400, "Current password does not match.");
+                return;
+            }
+            HttpUtil.sendJsonResponse(exchange, 200, ApiResponse.ok("Password changed successfully", null));
+        } catch (SQLException e) {
+            HttpUtil.sendError(exchange, 500, "Database error changing password: " + e.getMessage());
+        }
+    }
+
+    private void handleUpdateProfile(HttpExchange exchange) throws IOException {
+        SessionManager.UserSession session = SessionManager.authenticate(exchange);
+        if (session == null) {
+            HttpUtil.sendError(exchange, 401, "Unauthorized: Please log in.");
+            return;
+        }
+
+        String body = HttpUtil.readRequestBody(exchange);
+        UpdateProfileRequest req;
+        try {
+            req = JsonUtil.fromJson(body, UpdateProfileRequest.class);
+        } catch (Exception e) {
+            HttpUtil.sendError(exchange, 400, "Invalid JSON request body");
+            return;
+        }
+
+        if (req == null || req.name == null || req.name.trim().isEmpty()) {
+            HttpUtil.sendError(exchange, 400, "Name is required.");
+            return;
+        }
+
+        String newName = req.name.trim();
+        if (newName.length() < 2) {
+            HttpUtil.sendError(exchange, 400, "Name must be at least 2 characters long.");
+            return;
+        }
+
+        try {
+            boolean success = DatabaseManager.updateUserName(session.getUserId(), newName);
+            if (!success) {
+                HttpUtil.sendError(exchange, 400, "Failed to update profile.");
+                return;
+            }
+            SessionManager.updateSessionName(session.getToken(), newName);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("userId", session.getUserId());
+            data.put("name", newName);
+            data.put("email", session.getEmail());
+
+            HttpUtil.sendJsonResponse(exchange, 200, ApiResponse.ok("Profile updated successfully", data));
+        } catch (SQLException e) {
+            HttpUtil.sendError(exchange, 500, "Database error updating profile: " + e.getMessage());
+        }
     }
 }
 

@@ -21,17 +21,8 @@ import { reportService } from '../services/reportService';
 import { MonthlyReport } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { getCurrentMonthAndYear, formatMonthName } from '../utils/dateUtils';
-
-const CHART_COLORS = [
-  '#14b8a6', // Deep Teal
-  '#38bdf8', // Sky
-  '#6366f1', // Slate Indigo
-  '#f59e0b', // Amber
-  '#ec4899', // Rose-Pink
-  '#10b981', // Emerald
-  '#8b5cf6', // Violet
-  '#64748b', // Slate Neutral
-];
+import { CHART_COLORS } from '../utils/chartColors';
+import DotGrid from '../components/DotGrid';
 
 export default function Reports() {
   const { showSuccess, showError } = useToast();
@@ -77,15 +68,28 @@ export default function Reports() {
   const isOverBudget = Boolean(report && report.totalBudget > 0 && report.remainingBudget < 0);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-foundation-bg">
-      <Header
-        title="Monthly Reports & Export"
-        subtitle={`Summary statement for ${formatMonthName(month)} ${year}`}
-        month={month}
-        year={year}
-        onMonthChange={setMonth}
-        onYearChange={setYear}
-        actions={
+    <div className="relative flex-1 flex flex-col min-h-0 bg-foundation-bg overflow-hidden">
+      {/* React Bits Dot Grid Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <DotGrid
+          dotSize={3}
+          gap={24}
+          baseColor="#263445"
+          activeColor="#14b8a6"
+          proximity={120}
+          opacity={0.35}
+        />
+      </div>
+
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
+        <Header
+          title="Monthly Reports & Export"
+          subtitle={`Summary statement for ${formatMonthName(month)} ${year}`}
+          month={month}
+          year={year}
+          onMonthChange={setMonth}
+          onYearChange={setYear}
+          actions={
           <button
             onClick={handleExportCsv}
             disabled={exporting}
@@ -365,6 +369,7 @@ export default function Reports() {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@
 # Java / Maven build output
 target/
 *.class
+cp.txt
 
 # IDE & Editor files
 .idea/

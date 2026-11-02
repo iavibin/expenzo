@@ -5,7 +5,6 @@ import {
   SlidersHorizontal,
   Trash2,
   Edit2,
-  Calendar,
   X,
   Loader2,
   Receipt,
@@ -26,6 +25,8 @@ import { categoryService } from '../services/categoryService';
 import { Expense, Category } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatDate } from '../utils/dateUtils';
+import DatePickerPopover from '../components/DatePickerPopover';
+import DotGrid from '../components/DotGrid';
 
 export default function Expenses() {
   const { showSuccess, showError } = useToast();
@@ -62,8 +63,16 @@ export default function Expenses() {
 
   // Load Categories on mount
   useEffect(() => {
-    categoryService.getCategories().then(setCategories).catch(console.error);
-  }, []);
+    categoryService
+      .getCategories()
+      .then(setCategories)
+      .catch((err: unknown) => {
+        const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+        const msg = errorObj.response?.data?.message || errorObj.message || 'Failed to load expense categories.';
+        console.error('Failed to load categories:', err);
+        showError(msg);
+      });
+  }, [showError]);
 
   const loadExpenses = useCallback(async () => {
     setLoading(true);
@@ -223,23 +232,36 @@ export default function Expenses() {
   const selectedCategoryName = categories.find((c) => String(c.categoryId) === selectedCategory)?.categoryName;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-foundation-bg">
-      <Header
-        title="Expense Management"
-        subtitle="Record, search, and categorize your transactions"
-        actions={
-          <button
-            onClick={handleOpenAdd}
-            className="px-3.5 sm:px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealLight text-white text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Expense</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-        }
-      />
+    <div className="relative flex-1 flex flex-col min-h-0 bg-foundation-bg overflow-hidden">
+      {/* React Bits Dot Grid Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <DotGrid
+          dotSize={3}
+          gap={24}
+          baseColor="#263445"
+          activeColor="#14b8a6"
+          proximity={120}
+          opacity={0.35}
+        />
+      </div>
 
-      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
+        <Header
+          title="Expense Management"
+          subtitle="Record, search, and categorize your transactions"
+          actions={
+            <button
+              onClick={handleOpenAdd}
+              className="px-3.5 sm:px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealLight text-white text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Expense</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+          }
+        />
+
+        <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
         {/* Filters & Search Toolbar */}
         <div className="p-4 sm:p-5 rounded-xl bg-foundation-surface border border-foundation-border shadow-sm space-y-3.5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -283,28 +305,26 @@ export default function Expenses() {
             </div>
 
             {/* Start Date */}
-            <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
-              <input
-                type="date"
+            <div>
+              <DatePickerPopover
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                title="Start Date"
-                aria-label="Start Date"
-                className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg pl-8 pr-2.5 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer font-mono"
+                onChange={setStartDate}
+                label="Start Date"
+                placeholder="Start Date"
+                maxDate={endDate || undefined}
+                align="left"
               />
             </div>
 
             {/* End Date */}
-            <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
-              <input
-                type="date"
+            <div>
+              <DatePickerPopover
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                title="End Date"
-                aria-label="End Date"
-                className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg pl-8 pr-2.5 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer font-mono"
+                onChange={setEndDate}
+                label="End Date"
+                placeholder="End Date"
+                minDate={startDate || undefined}
+                align="right"
               />
             </div>
           </div>
@@ -500,6 +520,7 @@ export default function Expenses() {
           )}
         </div>
       </div>
+      </div>
 
       {/* Add / Edit Expense Modal */}
       {isModalOpen && (
@@ -582,12 +603,11 @@ export default function Expenses() {
                   <label className="block font-semibold text-gray-300 mb-1">
                     Date *
                   </label>
-                  <input
-                    type="date"
+                  <DatePickerPopover
                     value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    required
-                    className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer font-mono"
+                    onChange={setFormDate}
+                    label="Expense Date"
+                    placeholder="YYYY-MM-DD"
                   />
                 </div>
 

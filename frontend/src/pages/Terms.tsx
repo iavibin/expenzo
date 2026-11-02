@@ -1,10 +1,23 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileText, AlertTriangle } from 'lucide-react';
+import DotGrid from '../components/DotGrid';
 
 export default function Terms() {
   return (
-    <div className="min-h-screen bg-foundation-bg text-gray-200 p-4 sm:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="relative min-h-screen bg-foundation-bg text-gray-200 p-4 sm:p-8 overflow-hidden">
+      {/* React Bits Dot Grid Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <DotGrid
+          dotSize={3}
+          gap={24}
+          baseColor="#263445"
+          activeColor="#14b8a6"
+          proximity={120}
+          opacity={0.35}
+        />
+      </div>
+
+      <div className="relative z-10 max-w-3xl mx-auto space-y-6">
         {/* Back Link */}
         <Link
           to="/"

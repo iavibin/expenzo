@@ -23,6 +23,7 @@ import { categoryService } from '../services/categoryService';
 import { Budget, Category } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { getCurrentMonthAndYear, formatMonthName } from '../utils/dateUtils';
+import DotGrid from '../components/DotGrid';
 
 export default function Budgets() {
   const { showSuccess, showError } = useToast();
@@ -51,8 +52,16 @@ export default function Budgets() {
 
   // Load Categories on mount
   useEffect(() => {
-    categoryService.getCategories().then(setCategories).catch(console.error);
-  }, []);
+    categoryService
+      .getCategories()
+      .then(setCategories)
+      .catch((err: unknown) => {
+        const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+        const msg = errorObj.response?.data?.message || errorObj.message || 'Failed to load budget categories.';
+        console.error('Failed to load categories:', err);
+        showError(msg);
+      });
+  }, [showError]);
 
   const loadBudgets = useCallback(async () => {
     setLoading(true);
@@ -172,27 +181,40 @@ export default function Budgets() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-foundation-bg">
-      <Header
-        title="Budget Allocation"
-        subtitle="Manage category spending caps and track utilization"
-        month={month}
-        year={year}
-        onMonthChange={setMonth}
-        onYearChange={setYear}
-        actions={
-          <button
-            onClick={handleOpenAdd}
-            className="px-3.5 sm:px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealLight text-white text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Set Budget</span>
-            <span className="sm:hidden">Set</span>
-          </button>
-        }
-      />
+    <div className="relative flex-1 flex flex-col min-h-0 bg-foundation-bg overflow-hidden">
+      {/* React Bits Dot Grid Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <DotGrid
+          dotSize={3}
+          gap={24}
+          baseColor="#263445"
+          activeColor="#14b8a6"
+          proximity={120}
+          opacity={0.35}
+        />
+      </div>
 
-      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8">
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
+        <Header
+          title="Budget Allocation"
+          subtitle="Manage category spending caps and track utilization"
+          month={month}
+          year={year}
+          onMonthChange={setMonth}
+          onYearChange={setYear}
+          actions={
+            <button
+              onClick={handleOpenAdd}
+              className="px-3.5 sm:px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealLight text-white text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Set Budget</span>
+              <span className="sm:hidden">Set</span>
+            </button>
+          }
+        />
+
+        <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8">
         {/* Monthly Aggregate Overview */}
         {!loading && budgets.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -431,6 +453,7 @@ export default function Budgets() {
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* Add / Edit Budget Modal */}

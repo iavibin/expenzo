@@ -63,6 +63,15 @@ public class SessionManager {
         }
     }
 
+    public static void updateSessionName(String token, String newName) {
+        if (token == null) return;
+        UserSession current = SESSIONS.get(token);
+        if (current != null) {
+            UserSession updated = new UserSession(current.getToken(), current.getUserId(), newName.trim(), current.getEmail());
+            SESSIONS.put(token, updated);
+        }
+    }
+
     public static UserSession authenticate(HttpExchange exchange) {
         String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
