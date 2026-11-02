@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
   Search,
@@ -11,6 +11,10 @@ import {
   Receipt,
   AlertCircle,
   RotateCcw,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  CreditCard,
 } from 'lucide-react';
 import Header from '../components/Header';
 import LoadingState from '../components/LoadingState';
@@ -36,7 +40,7 @@ export default function Expenses() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [sortBy, setSortBy] = useState('date');
+  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Modal State
@@ -88,6 +92,11 @@ export default function Expenses() {
     }, 200);
     return () => clearTimeout(timer);
   }, [loadExpenses]);
+
+  // Total filtered expense amount
+  const totalFilteredAmount = useMemo(() => {
+    return expenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
+  }, [expenses]);
 
   // Open Add Modal
   const handleOpenAdd = () => {
@@ -171,7 +180,7 @@ export default function Expenses() {
     setDeleting(true);
     try {
       await expenseService.deleteExpense(deleteExpenseItem.expenseId);
-      showSuccess('Expense deleted successfully');
+      showSuccess(`Deleted expense "${deleteExpenseItem.description || deleteExpenseItem.categoryName}"`);
       setDeleteExpenseItem(null);
       loadExpenses();
     } catch (err: unknown) {
@@ -179,6 +188,16 @@ export default function Expenses() {
       showError(errorObj.response?.data?.message || 'Failed to delete expense.');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Toggle Column Sort
+  const handleSortToggle = (col: 'date' | 'amount') => {
+    if (sortBy === col) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(col);
+      setSortOrder('desc');
     }
   };
 
@@ -192,9 +211,14 @@ export default function Expenses() {
     setSortOrder('desc');
   };
 
-  const hasActiveFilters = Boolean(
-    search || selectedCategory || startDate || endDate || sortBy !== 'date' || sortOrder !== 'desc'
-  );
+  const activeFilterCount =
+    (search ? 1 : 0) +
+    (selectedCategory ? 1 : 0) +
+    (startDate ? 1 : 0) +
+    (endDate ? 1 : 0) +
+    (sortBy !== 'date' || sortOrder !== 'desc' ? 1 : 0);
+
+  const selectedCategoryName = categories.find((c) => String(c.categoryId) === selectedCategory)?.categoryName;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0B0F19]">
@@ -204,7 +228,7 @@ export default function Expenses() {
         actions={
           <button
             onClick={handleOpenAdd}
-            className="px-3 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
+            className="px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Add Expense</span>
@@ -224,9 +248,18 @@ export default function Expenses() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search description or note..."
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-10 pr-4 py-2 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Search description or notes..."
+                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-white"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             {/* Category Filter */}
@@ -234,7 +267,7 @@ export default function Expenses() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="">All Categories</option>
                 {categories.map((c) => (
@@ -247,66 +280,108 @@ export default function Expenses() {
 
             {/* Start Date */}
             <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5 pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                title="Start Date"
+                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
               />
             </div>
 
             {/* End Date */}
             <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5 pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                title="End Date"
+                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
               />
             </div>
           </div>
 
-          {/* Sort & Reset Row */}
+          {/* Active Filter Chips & Sort Controls */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1E293B] text-xs">
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-gray-400 font-medium flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Sort by:</span>
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                <span>Sort:</span>
               </span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-[#1A2234] border border-[#2D3748] rounded-lg px-2.5 py-1 text-xs text-gray-200 focus:outline-none cursor-pointer"
+
+              <button
+                onClick={() => handleSortToggle('date')}
+                className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  sortBy === 'date'
+                    ? 'bg-blue-600/15 border-blue-500/40 text-blue-300'
+                    : 'bg-[#1A2234] border-[#2D3748] text-gray-400 hover:text-gray-200'
+                }`}
               >
-                <option value="date">Date</option>
-                <option value="amount">Amount</option>
-              </select>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                className="bg-[#1A2234] border border-[#2D3748] rounded-lg px-2.5 py-1 text-xs text-gray-200 focus:outline-none cursor-pointer"
+                <span>Date</span>
+                {sortBy === 'date' &&
+                  (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+              </button>
+
+              <button
+                onClick={() => handleSortToggle('amount')}
+                className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  sortBy === 'amount'
+                    ? 'bg-blue-600/15 border-blue-500/40 text-blue-300'
+                    : 'bg-[#1A2234] border-[#2D3748] text-gray-400 hover:text-gray-200'
+                }`}
               >
-                <option value="desc">Descending</option>
-                <option value="asc">Ascending</option>
-              </select>
+                <span>Amount</span>
+                {sortBy === 'amount' &&
+                  (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+              </button>
             </div>
 
-            {hasActiveFilters && (
-              <button
-                onClick={handleResetFilters}
-                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 font-medium px-2 py-1 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset Filters</span>
-              </button>
-            )}
+            {/* Filter Summary & Reset Action */}
+            <div className="flex items-center gap-2">
+              {activeFilterCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium border border-blue-500/20">
+                  {activeFilterCount} active {activeFilterCount === 1 ? 'filter' : 'filters'}
+                </span>
+              )}
+
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={handleResetFilters}
+                  className="text-xs text-gray-400 hover:text-blue-300 flex items-center gap-1 font-medium px-2 py-1 rounded-lg hover:bg-[#1A2234] transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset Filters</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Expenses List Card */}
+        {/* Expenses Table Card */}
         <div className="rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl overflow-hidden">
+          {/* Table Header Summary Strip */}
+          <div className="p-4 px-6 bg-[#0F172A]/90 border-b border-[#1E293B] flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-gray-200">
+                {expenses.length} {expenses.length === 1 ? 'Transaction' : 'Transactions'}
+              </span>
+              {selectedCategoryName && (
+                <span className="px-2 py-0.5 rounded-md bg-[#1E293B] text-gray-300 text-[11px] border border-[#334155]">
+                  Category: {selectedCategoryName}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Total Spent:</span>
+              <span className="font-mono font-bold text-rose-400 text-sm">
+                {formatCurrency(totalFilteredAmount)}
+              </span>
+            </div>
+          </div>
+
           {error && (
             <div className="p-4 bg-rose-500/10 border-b border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -318,51 +393,80 @@ export default function Expenses() {
             <LoadingState message="Loading your expenses..." minHeight="min-h-[350px]" />
           ) : expenses.length === 0 ? (
             <EmptyState
-              title={hasActiveFilters ? 'No matching expenses' : 'No expenses recorded'}
+              title={activeFilterCount > 0 ? 'No matching expenses' : 'No expenses recorded'}
               description={
-                hasActiveFilters
-                  ? 'No records match your selected filters. Try broadening your criteria.'
+                activeFilterCount > 0
+                  ? 'No records match your selected filters. Try broadening your criteria or reset filters.'
                   : 'Start tracking by recording your first expense transaction.'
               }
-              actionText={hasActiveFilters ? 'Reset Filters' : 'Record New Expense'}
-              onAction={hasActiveFilters ? handleResetFilters : handleOpenAdd}
+              actionText={activeFilterCount > 0 ? 'Reset Filters' : 'Record New Expense'}
+              onAction={activeFilterCount > 0 ? handleResetFilters : handleOpenAdd}
               icon={Receipt}
               minHeight="min-h-[280px]"
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[600px]">
+              <table className="w-full text-left text-xs min-w-[640px]">
                 <thead>
-                  <tr className="border-b border-[#1E293B] bg-[#0F172A]/80 text-[11px] font-semibold uppercase text-gray-400">
-                    <th className="py-3.5 pl-6">Date</th>
+                  <tr className="border-b border-[#1E293B] bg-[#0F172A]/50 text-[11px] font-semibold uppercase text-gray-400 select-none">
+                    <th
+                      onClick={() => handleSortToggle('date')}
+                      className="py-3.5 pl-6 cursor-pointer hover:text-white transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Date</span>
+                        {sortBy === 'date' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-400" /> : <ArrowDown className="w-3 h-3 text-blue-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-gray-600" />
+                        )}
+                      </div>
+                    </th>
                     <th className="py-3.5 px-4">Category</th>
                     <th className="py-3.5 px-4">Description</th>
-                    <th className="py-3.5 px-4">Mode</th>
-                    <th className="py-3.5 px-4 text-right">Amount</th>
+                    <th className="py-3.5 px-4">Payment Mode</th>
+                    <th
+                      onClick={() => handleSortToggle('amount')}
+                      className="py-3.5 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                    >
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span>Amount</span>
+                        {sortBy === 'amount' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-400" /> : <ArrowDown className="w-3 h-3 text-blue-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-gray-600" />
+                        )}
+                      </div>
+                    </th>
                     <th className="py-3.5 pr-6 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1E293B]/60">
                   {expenses.map((exp) => (
                     <tr key={exp.expenseId} className="hover:bg-[#1E293B]/40 transition-colors">
-                      <td className="py-3.5 pl-6 text-gray-300 font-mono text-[11px]">
+                      <td className="py-3.5 pl-6 text-gray-300 font-mono text-[11px] whitespace-nowrap">
                         {formatDate(exp.expenseDate)}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className="px-2.5 py-1 rounded-md bg-[#1E293B] border border-[#334155] text-gray-200 font-medium text-[11px]">
                           {exp.categoryName || 'General'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-gray-200 font-medium">
-                        {exp.description || '—'}
+                      <td className="py-3.5 px-4 text-gray-200 font-medium max-w-[240px]">
+                        <span className="line-clamp-1" title={exp.description || '—'}>
+                          {exp.description || '—'}
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4 text-gray-400">
-                        {exp.paymentMode || 'Cash'}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#1A2234] text-gray-300 text-[11px] border border-[#2D3748]">
+                          <CreditCard className="w-3 h-3 text-gray-400" />
+                          <span>{exp.paymentMode || 'Cash'}</span>
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400 text-sm">
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400 text-sm whitespace-nowrap">
                         -{formatCurrency(exp.amount)}
                       </td>
-                      <td className="py-3.5 pr-6 text-center">
+                      <td className="py-3.5 pr-6 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => handleOpenEdit(exp)}
@@ -392,7 +496,7 @@ export default function Expenses() {
       {/* Add / Edit Expense Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
               <h3 className="text-lg font-bold text-white tracking-tight">
                 {editingExpense ? 'Edit Expense' : 'Add New Expense'}
@@ -459,12 +563,12 @@ export default function Expenses() {
                   type="text"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="e.g. Starbucks, Groceries, Movie Tickets"
+                  placeholder="e.g. Starbucks, Groceries, Electricity Bill"
                   className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3.5 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     Date *
@@ -530,7 +634,9 @@ export default function Expenses() {
         title="Delete Expense"
         message={`Are you sure you want to delete this expense of ${
           deleteExpenseItem ? formatCurrency(deleteExpenseItem.amount) : ''
-        } for "${deleteExpenseItem?.categoryName || 'General'}"? This action cannot be undone.`}
+        } for "${deleteExpenseItem?.categoryName || 'General'}"${
+          deleteExpenseItem?.description ? ` (${deleteExpenseItem.description})` : ''
+        }? This action cannot be undone.`}
         confirmText="Delete Expense"
         variant="danger"
         loading={deleting}

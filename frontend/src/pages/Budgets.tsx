@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -9,6 +9,9 @@ import {
   AlertCircle,
   X,
   Loader2,
+  Wallet,
+  TrendingDown,
+  Scale,
 } from 'lucide-react';
 import Header from '../components/Header';
 import LoadingState from '../components/LoadingState';
@@ -19,7 +22,7 @@ import { budgetService, BudgetPayload } from '../services/budgetService';
 import { categoryService } from '../services/categoryService';
 import { Budget, Category } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
-import { getCurrentMonthAndYear } from '../utils/dateUtils';
+import { getCurrentMonthAndYear, formatMonthName } from '../utils/dateUtils';
 
 export default function Budgets() {
   const { showSuccess, showError } = useToast();
@@ -69,10 +72,23 @@ export default function Budgets() {
     loadBudgets();
   }, [loadBudgets]);
 
+  // Aggregate monthly budget metrics
+  const budgetSummary = useMemo(() => {
+    const totalBudget = budgets.reduce((acc, b) => acc + (b.budgetAmount || 0), 0);
+    const totalSpent = budgets.reduce((acc, b) => acc + (b.amountSpent || 0), 0);
+    const remaining = totalBudget - totalSpent;
+    const overallPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+    return { totalBudget, totalSpent, remaining, overallPct };
+  }, [budgets]);
+
   // Open Add Modal
   const handleOpenAdd = () => {
     setEditingBudget(null);
-    setFormCategory(categories[0] ? String(categories[0].categoryId) : '');
+    // Suggest first category that doesn't already have a budget
+    const existingCategoryIds = new Set(budgets.map((b) => b.categoryId));
+    const availableCategory = categories.find((c) => !existingCategoryIds.has(c.categoryId)) || categories[0];
+
+    setFormCategory(availableCategory ? String(availableCategory.categoryId) : '');
     setFormAmount('');
     setModalError(null);
     setIsModalOpen(true);
@@ -162,7 +178,7 @@ export default function Budgets() {
         actions={
           <button
             onClick={handleOpenAdd}
-            className="px-3 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
+            className="px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Set Budget</span>
@@ -172,6 +188,77 @@ export default function Budgets() {
       />
 
       <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+        {/* Executive Monthly Budget Summary Cards */}
+        {budgets.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Budget</p>
+                <p className="text-base font-bold text-white font-mono mt-0.5 truncate">
+                  {formatCurrency(budgetSummary.totalBudget)}
+                </p>
+                <p className="text-[10px] text-gray-500">{budgets.length} Categories</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <TrendingDown className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Spent</p>
+                <p className="text-base font-bold text-white font-mono mt-0.5 truncate">
+                  {formatCurrency(budgetSummary.totalSpent)}
+                </p>
+                <p className="text-[10px] text-gray-500">{budgetSummary.overallPct}% utilized</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md flex items-center gap-3.5">
+              <div
+                className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+                  budgetSummary.remaining < 0
+                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                }`}
+              >
+                <Scale className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {budgetSummary.remaining < 0 ? 'Deficit' : 'Remaining Buffer'}
+                </p>
+                <p
+                  className={`text-base font-bold font-mono mt-0.5 truncate ${
+                    budgetSummary.remaining < 0 ? 'text-rose-400' : 'text-emerald-400'
+                  }`}
+                >
+                  {formatCurrency(Math.abs(budgetSummary.remaining))}
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  {budgetSummary.remaining < 0 ? 'Over allocated cap' : 'Available balance'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                <Target className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Overall Progress</p>
+                <p className="text-base font-bold text-purple-300 font-mono mt-0.5">
+                  {budgetSummary.overallPct}%
+                </p>
+                <p className="text-[10px] text-gray-500">For {formatMonthName(month)} {year}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -184,7 +271,7 @@ export default function Budgets() {
         ) : budgets.length === 0 ? (
           <EmptyState
             title="No budgets configured"
-            description="You have not set any category budgets for this month."
+            description={`You have not set any category budgets for ${formatMonthName(month)} ${year}. Allocate spending limits to receive threshold warnings.`}
             actionText="Create Category Budget"
             onAction={handleOpenAdd}
             icon={Target}
@@ -202,15 +289,17 @@ export default function Budgets() {
               let barColor = 'bg-emerald-500';
 
               if (isExceeded) {
-                badgeBg = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+                badgeBg = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
                 barColor = 'bg-rose-500';
               } else if (isWarning) {
-                badgeBg = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+                badgeBg = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
                 barColor = 'bg-amber-500';
               } else if (isApproaching) {
-                badgeBg = 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+                badgeBg = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
                 barColor = 'bg-blue-500';
               }
+
+              const remaining = b.remainingAmount ?? (b.budgetAmount - (b.amountSpent ?? 0));
 
               return (
                 <div
@@ -218,14 +307,14 @@ export default function Budgets() {
                   className="p-5 sm:p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col justify-between hover:border-[#334155] transition-all"
                 >
                   <div>
-                    {/* Header: Category & Threshold Badge */}
+                    {/* Header: Category Title & Threshold Badge */}
                     <div className="flex items-start justify-between gap-2 mb-4">
                       <div className="min-w-0">
                         <h4 className="font-bold text-base text-white truncate">
                           {b.categoryName}
                         </h4>
                         <p className="text-[11px] text-gray-400 mt-0.5">
-                          Monthly Budget: <span className="text-gray-200 font-mono font-medium">{formatCurrency(b.budgetAmount)}</span>
+                          Limit Cap: <span className="text-gray-200 font-mono font-medium">{formatCurrency(b.budgetAmount)}</span>
                         </p>
                       </div>
 
@@ -245,59 +334,94 @@ export default function Budgets() {
                       </div>
                     </div>
 
-                    {/* Progress Bar with Percentage */}
+                    {/* Progress Bar with Benchmark Threshold Notches (75%, 90%, 100%) */}
                     <div className="space-y-2 mt-4">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">Spent: <strong className="text-white font-mono">{formatCurrency(b.amountSpent)}</strong></span>
+                        <span className="text-gray-400">
+                          Spent: <strong className="text-white font-mono">{formatCurrency(b.amountSpent)}</strong>
+                        </span>
                         <span className="font-mono font-bold text-gray-200">
                           {pct}%
                         </span>
                       </div>
 
-                      <div className="w-full h-2.5 rounded-full bg-[#1A2234] border border-[#2D3748] overflow-hidden relative">
+                      {/* Bar Track with Visual Markers */}
+                      <div className="relative w-full">
+                        <div className="w-full h-2.5 rounded-full bg-[#1A2234] border border-[#2D3748] overflow-hidden relative">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+
+                        {/* Benchmark Markers (75%, 90%) */}
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                          style={{ width: `${Math.min(pct, 100)}%` }}
+                          className="absolute top-0 bottom-0 w-0.5 bg-gray-500/40 pointer-events-none"
+                          style={{ left: '75%' }}
+                          title="75% Approaching Threshold"
+                        />
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-gray-500/40 pointer-events-none"
+                          style={{ left: '90%' }}
+                          title="90% Warning Threshold"
                         />
                       </div>
 
-                      {/* Remaining / Overspent helper */}
-                      <div className="flex items-center justify-between text-[11px] pt-1 text-gray-400">
-                        {(() => {
-                          const remaining = b.remainingAmount ?? (b.budgetAmount - (b.amountSpent ?? 0));
-                          return (
-                            <span>
-                              {remaining < 0 ? (
-                                <span className="text-rose-400 font-semibold">
-                                  Exceeded by {formatCurrency(Math.abs(remaining))}
-                                </span>
-                              ) : (
-                                <span>Remaining: <strong className="text-emerald-400 font-mono">{formatCurrency(remaining)}</strong></span>
-                              )}
+                      {/* Threshold Legend / Subtext */}
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 px-0.5">
+                        <span>0%</span>
+                        <span className="text-blue-400/70">75%</span>
+                        <span className="text-amber-400/70">90%</span>
+                        <span className="text-rose-400/70">100%</span>
+                      </div>
+
+                      {/* Remaining / Overspent Status */}
+                      <div className="flex items-center justify-between text-[11px] pt-1 text-gray-400 border-t border-[#1E293B]/70 mt-2">
+                        <span>
+                          {remaining < 0 ? (
+                            <span className="text-rose-400 font-semibold">
+                              Exceeded by {formatCurrency(Math.abs(remaining))}
                             </span>
-                          );
-                        })()}
-                        <span className="text-gray-500">Cap: {formatCurrency(b.budgetAmount)}</span>
+                          ) : (
+                            <span>
+                              Remaining:{' '}
+                              <strong className="text-emerald-400 font-mono">
+                                {formatCurrency(remaining)}
+                              </strong>
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-gray-500">
+                          Buffer: {Math.max(0, 100 - pct)}%
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Card Actions */}
-                  <div className="mt-6 pt-4 border-t border-[#1E293B] flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => handleOpenEdit(b)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-                      title="Edit Budget"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(b)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                      title="Delete Budget"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="mt-6 pt-4 border-t border-[#1E293B] flex items-center justify-between text-xs">
+                    <span className="text-[11px] text-gray-500 font-mono">
+                      {formatMonthName(month).slice(0, 3)} {year}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenEdit(b)}
+                        className="px-2.5 py-1 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Edit Budget"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(b)}
+                        className="px-2.5 py-1 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Delete Budget"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -309,7 +433,7 @@ export default function Budgets() {
       {/* Add / Edit Budget Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
               <h3 className="text-lg font-bold text-white tracking-tight">
                 {editingBudget ? 'Edit Category Budget' : 'Set Category Budget'}
@@ -338,15 +462,22 @@ export default function Budgets() {
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
                   required
-                  className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  disabled={Boolean(editingBudget)}
+                  className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="" disabled>Select category</option>
-                  {categories.map((c) => (
-                    <option key={c.categoryId} value={c.categoryId}>
-                      {c.categoryName}
-                    </option>
-                  ))}
+                  {categories.map((c) => {
+                    const alreadyHasBudget = !editingBudget && budgets.some((b) => b.categoryId === c.categoryId);
+                    return (
+                      <option key={c.categoryId} value={c.categoryId} disabled={alreadyHasBudget}>
+                        {c.categoryName} {alreadyHasBudget ? '(Budget already exists)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                {editingBudget && (
+                  <p className="text-[11px] text-gray-400 mt-1">Category cannot be changed when editing.</p>
+                )}
               </div>
 
               <div>
@@ -368,8 +499,11 @@ export default function Budgets() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#1A2234] border border-[#2D3748] text-gray-400 text-[11px]">
-                Budget applies to: <strong className="text-gray-200">{month}/{year}</strong>
+              <div className="p-3.5 rounded-xl bg-[#1A2234] border border-[#2D3748] text-gray-300 text-xs flex items-center justify-between">
+                <span className="text-gray-400">Target Month:</span>
+                <span className="font-semibold text-white">
+                  {formatMonthName(month)} {year}
+                </span>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#1E293B]">
@@ -406,7 +540,7 @@ export default function Budgets() {
         title="Delete Budget"
         message={`Are you sure you want to remove the monthly budget of ${
           deleteBudgetItem ? formatCurrency(deleteBudgetItem.budgetAmount) : ''
-        } for "${deleteBudgetItem?.categoryName || 'this category'}"?`}
+        } for "${deleteBudgetItem?.categoryName || 'this category'}" (${formatMonthName(month)} ${year})?`}
         confirmText="Delete Budget"
         variant="danger"
         loading={deleting}
