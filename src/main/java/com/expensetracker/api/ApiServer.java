@@ -75,7 +75,7 @@ public class ApiServer {
         server.start();
 
         System.out.println("=================================================");
-        System.out.println(" Expenzo 2.0 API Server started on port " + port);
+        System.out.println(" Expenzo API Server started on port " + port);
         System.out.println(" Health check: http://localhost:" + port + "/api/health");
         System.out.println(" Base URL:     http://localhost:" + port + "/api");
         System.out.println("=================================================");

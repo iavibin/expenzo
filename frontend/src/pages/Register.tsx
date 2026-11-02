@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { WalletCards, User, Mail, Lock, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -38,9 +39,21 @@ export default function Register() {
       await register(name.trim(), email.trim(), password);
       navigate('/dashboard');
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      const msg = errorObj.response?.data?.message || 'Registration failed. Email may already be in use.';
-      setError(msg);
+      if (axios.isAxiosError(err)) {
+        if (!err.response) {
+          setError('Unable to connect to Expenzo backend server. Please verify the API server is running on port 8080.');
+        } else if (err.response.status === 409) {
+          setError(err.response.data?.message || 'An account with this email already exists.');
+        } else if (err.response.status === 503 || err.response.status === 502 || err.response.status === 504) {
+          setError(err.response.data?.message || 'Expenzo API server (port 8080) is unreachable. Please verify the Java backend is running.');
+        } else if (err.response.status === 400) {
+          setError(err.response.data?.message || 'Invalid registration details. Please check your input.');
+        } else {
+          setError(err.response.data?.message || 'Registration failed. Email may already be in use.');
+        }
+      } else {
+        setError('An unexpected error occurred during registration.');
+      }
     } finally {
       setSubmitting(false);
     }

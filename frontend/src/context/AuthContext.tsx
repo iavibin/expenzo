@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import axios from 'axios';
 import { User } from '../types';
 import { authService } from '../services/authService';
 
@@ -37,11 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await authService.getMe();
         setUser(me);
         localStorage.setItem('expenzo_user', JSON.stringify(me));
-      } catch {
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('expenzo_token');
-        localStorage.removeItem('expenzo_user');
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          setUser(null);
+          setToken(null);
+          localStorage.removeItem('expenzo_token');
+          localStorage.removeItem('expenzo_user');
+        }
       } finally {
         setLoading(false);
       }

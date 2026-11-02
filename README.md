@@ -1,6 +1,6 @@
-# Expenzo 2.0 — Modern Personal Expense & Budget Tracker
+# Expenzo — Modern Personal Expense & Budget Tracker
 
-Expenzo 2.0 is a full-stack personal finance and budget management platform. It modernizes the original Expenzo desktop application into a responsive web application powered by **React 18**, **TypeScript**, **Tailwind CSS**, and **Recharts**, while preserving the original **Java 17+** backend, **JDBC** data access, and **MySQL 8.0** database. The original Java Swing desktop client remains functional as a dual-entry fallback.
+Expenzo is a full-stack personal finance and budget management platform. It modernizes the original Expenzo desktop application into a responsive web application powered by **React 18**, **TypeScript**, **Tailwind CSS**, and **Recharts**, while preserving the original **Java 17+** backend, **JDBC** data access, and **MySQL 8.0** database. The original Java Swing desktop client remains functional as a dual-entry fallback.
 
 ---
 
@@ -144,6 +144,13 @@ PORT=8080
 
 ## Building and Running
 
+> [!IMPORTANT]
+> **Dual-Process Architecture**: Expenzo requires **both** the Java REST API server (backend) and the Vite React server (frontend) to be running simultaneously in separate terminal sessions.
+> - **Backend API Server**: Runs on `http://127.0.0.1:8080` (Java 17 / Maven)
+> - **Frontend Web App**: Runs on `http://localhost:5173` (Vite / React)
+>
+> If you start only `npm run dev` without running the Java API server, the login page will clearly notify you that the backend on port 8080 is unreachable.
+
 ### 1. Backend API Server
 
 Compile and launch the Java REST API server:
@@ -165,7 +172,7 @@ The server will output:
 ```text
 Database connection: OK
 =================================================
- Expenzo 2.0 API Server started on port 8080
+ Expenzo API Server started on port 8080
  Health check: http://localhost:8080/api/health
  Base URL:     http://localhost:8080/api
 =================================================
@@ -173,7 +180,7 @@ Database connection: OK
 
 ### 2. React Web Frontend (Development)
 
-Open a new terminal window:
+Open a **separate** terminal window:
 
 ```bash
 cd frontend
@@ -183,7 +190,15 @@ npm run dev
 
 The frontend development server will launch at:
 - **Local URL**: `http://localhost:5173`
-- API calls to `/api/*` are automatically proxied to `http://localhost:8080/api/*` via Vite configuration.
+- API calls to `/api/*` are automatically forwarded to `http://127.0.0.1:8080/api/*` via Vite's proxy.
+
+### Default Test Credentials
+
+For quick evaluation, sign in using the pre-seeded account:
+- **Email**: `test@example.com`
+- **Password**: `test123`
+
+Or register a new account directly from the **"Create an account"** link on the login page.
 
 ### 3. React Web Frontend (Production Build)
 
@@ -355,7 +370,7 @@ Expenzo/
         ├── services/                          # API clients (auth, expenses, budgets, analytics, reports)
         ├── context/                           # AuthContext for state & token persistence
         ├── components/                        # UI components (Header, Sidebar, StatCard, Loading, Empty)
-        ├── utils/                             # formatCurrency (USD) & date formatting
+        ├── utils/                             # formatCurrency (INR ₹) & date formatting
         └── pages/                             # Modern dark-themed responsive pages:
             ├── Login.tsx
             ├── Register.tsx
@@ -370,7 +385,7 @@ Expenzo/
 
 ## Verification & Testing
 
-Expenzo 2.0 includes an automated end-to-end verification suite testing:
+Expenzo includes an automated end-to-end verification suite testing:
 - API Server Health & MySQL connectivity
 - BCrypt hashing lifecycle & token revocation
 - Data consistency across Expense and Budget operations

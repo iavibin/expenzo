@@ -13,8 +13,20 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://127.0.0.1:8080',
         changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          proxy.on('error', (_err, _req, res) => {
+            if (res && !('headersSent' in res && res.headersSent)) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                success: false,
+                message: 'Expenzo API server (port 8080) is unreachable. Please verify the Java backend is running.'
+              }));
+            }
+          });
+        },
       },
     },
   },

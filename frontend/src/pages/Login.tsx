@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { WalletCards, Mail, Lock, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,9 +27,21 @@ export default function Login() {
       await login(email.trim(), password);
       navigate('/dashboard');
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      const msg = errorObj.response?.data?.message || 'Login failed. Please check your credentials.';
-      setError(msg);
+      if (axios.isAxiosError(err)) {
+        if (!err.response) {
+          setError('Unable to connect to Expenzo backend server. Please verify the API server is running on port 8080.');
+        } else if (err.response.status === 401) {
+          setError(err.response.data?.message || 'Invalid email or password. Please check your credentials.');
+        } else if (err.response.status === 503 || err.response.status === 502 || err.response.status === 504) {
+          setError(err.response.data?.message || 'Expenzo API server (port 8080) is unreachable. Please verify the Java backend is running.');
+        } else if (err.response.status === 500) {
+          setError(err.response.data?.message || 'Server error occurred during login. Please check database connectivity.');
+        } else {
+          setError(err.response.data?.message || 'Login failed. Please check your credentials.');
+        }
+      } else {
+        setError('An unexpected error occurred during login. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
