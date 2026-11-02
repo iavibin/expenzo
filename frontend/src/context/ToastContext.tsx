@@ -56,7 +56,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* Floating Toast Container */}
       <div
         aria-live="polite"
-        className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+        className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"
       >
         {toasts.map((toast) => {
           const isSuccess = toast.type === 'success';
@@ -67,21 +67,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <div
               key={toast.id}
               role="alert"
-              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-2xl backdrop-blur-md transition-all duration-300 transform translate-y-0 ${
+              className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-lg border shadow-lg bg-foundation-surface transition-all duration-200 ${
                 isSuccess
-                  ? 'bg-[#0F172A]/95 border-emerald-500/40 text-emerald-200'
+                  ? 'border-emerald-500/30 text-gray-200'
                   : isError
-                  ? 'bg-[#0F172A]/95 border-rose-500/40 text-rose-200'
+                  ? 'border-rose-500/30 text-gray-200'
                   : isWarning
-                  ? 'bg-[#0F172A]/95 border-amber-500/40 text-amber-200'
-                  : 'bg-[#0F172A]/95 border-blue-500/40 text-blue-200'
+                  ? 'border-amber-500/30 text-gray-200'
+                  : 'border-foundation-border text-gray-200'
               }`}
             >
-              {isSuccess && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />}
-              {isError && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />}
-              {isWarning && <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
+              {isSuccess && <CheckCircle2 className="w-4 h-4 text-semantic-emerald shrink-0 mt-0.5" />}
+              {isError && <AlertCircle className="w-4 h-4 text-semantic-rose shrink-0 mt-0.5" />}
+              {isWarning && <AlertTriangle className="w-4 h-4 text-semantic-amber shrink-0 mt-0.5" />}
               {!isSuccess && !isError && !isWarning && (
-                <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <Info className="w-4 h-4 text-brand-tealLight shrink-0 mt-0.5" />
               )}
 
               <div className="flex-1 text-xs font-medium leading-relaxed">{toast.message}</div>
@@ -90,6 +90,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => dismissToast(toast.id)}
                 className="text-gray-400 hover:text-white p-0.5 rounded transition-colors"
                 title="Dismiss"
+                aria-label="Dismiss toast"
               >
                 <X className="w-4 h-4" />
               </button>

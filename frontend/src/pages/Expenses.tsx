@@ -17,9 +17,9 @@ import {
   CreditCard,
 } from 'lucide-react';
 import Header from '../components/Header';
-import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { TableSkeleton } from '../components/Skeleton';
 import { useToast } from '../context/ToastContext';
 import { expenseService, ExpensePayload } from '../services/expenseService';
 import { categoryService } from '../services/categoryService';
@@ -103,7 +103,7 @@ export default function Expenses() {
     setEditingExpense(null);
     setFormDescription('');
     setFormAmount('');
-    setFormCategory(categories[0] ? String(categories[0].categoryId) : '');
+    setFormCategory(categories.length > 0 ? String(categories[0].categoryId) : '');
     setFormDate(new Date().toISOString().split('T')[0]);
     setFormPaymentMode('UPI');
     setModalError(null);
@@ -113,23 +113,23 @@ export default function Expenses() {
   // Open Edit Modal
   const handleOpenEdit = (exp: Expense) => {
     setEditingExpense(exp);
-    setFormDescription(exp.description);
+    setFormDescription(exp.description || '');
     setFormAmount(String(exp.amount));
     setFormCategory(String(exp.categoryId));
-    setFormDate(exp.expenseDate);
-    setFormPaymentMode(exp.paymentMode || 'Cash');
+    setFormDate(exp.expenseDate || new Date().toISOString().split('T')[0]);
+    setFormPaymentMode(exp.paymentMode || 'UPI');
     setModalError(null);
     setIsModalOpen(true);
   };
 
-  // Handle Form Submit (Add or Edit)
+  // Handle Form Submission
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
 
-    const amt = parseFloat(formAmount);
-    if (isNaN(amt) || amt <= 0) {
-      setModalError('Please enter a valid positive amount.');
+    const amountNum = parseFloat(formAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setModalError('Please enter a valid expense amount greater than 0.');
       return;
     }
 
@@ -144,11 +144,11 @@ export default function Expenses() {
     }
 
     const payload: ExpensePayload = {
-      description: formDescription.trim(),
-      amount: amt,
       categoryId: parseInt(formCategory),
+      amount: amountNum,
       expenseDate: formDate,
       paymentMode: formPaymentMode,
+      description: formDescription.trim(),
     };
 
     setModalSubmitting(true);
@@ -158,7 +158,7 @@ export default function Expenses() {
         showSuccess('Expense updated successfully');
       } else {
         await expenseService.createExpense(payload);
-        showSuccess('Expense recorded successfully');
+        showSuccess('New expense recorded');
       }
       setIsModalOpen(false);
       loadExpenses();
@@ -170,17 +170,19 @@ export default function Expenses() {
     }
   };
 
-  // Trigger Delete Confirmation
+  // Trigger Delete confirmation
   const handleDeleteClick = (exp: Expense) => {
     setDeleteExpenseItem(exp);
   };
 
+  // Execute Delete
   const confirmDeleteExpense = async () => {
     if (!deleteExpenseItem) return;
+
     setDeleting(true);
     try {
       await expenseService.deleteExpense(deleteExpenseItem.expenseId);
-      showSuccess(`Deleted expense "${deleteExpenseItem.description || deleteExpenseItem.categoryName}"`);
+      showSuccess(`Deleted expense: ${deleteExpenseItem.description || formatCurrency(deleteExpenseItem.amount)}`);
       setDeleteExpenseItem(null);
       loadExpenses();
     } catch (err: unknown) {
@@ -191,12 +193,12 @@ export default function Expenses() {
     }
   };
 
-  // Toggle Column Sort
-  const handleSortToggle = (col: 'date' | 'amount') => {
-    if (sortBy === col) {
-      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  // Toggle Sorting
+  const handleSortToggle = (field: 'date' | 'amount') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortBy(col);
+      setSortBy(field);
       setSortOrder('desc');
     }
   };
@@ -221,14 +223,14 @@ export default function Expenses() {
   const selectedCategoryName = categories.find((c) => String(c.categoryId) === selectedCategory)?.categoryName;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#0B0F19]">
+    <div className="flex-1 flex flex-col min-h-0 bg-foundation-bg">
       <Header
         title="Expense Management"
         subtitle="Record, search, and categorize your transactions"
         actions={
           <button
             onClick={handleOpenAdd}
-            className="px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
+            className="px-3.5 sm:px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealLight text-white text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Add Expense</span>
@@ -239,23 +241,24 @@ export default function Expenses() {
 
       <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
         {/* Filters & Search Toolbar */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md space-y-4">
+        <div className="p-4 sm:p-5 rounded-xl bg-foundation-surface border border-foundation-border shadow-sm space-y-3.5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Search Input */}
             <div className="sm:col-span-2 relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5 pointer-events-none" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search description or notes..."
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg pl-9 pr-8 py-2 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-brand-tealLight focus:ring-1 focus:ring-brand-tealLight transition-colors"
               />
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-white"
+                  className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white"
                   title="Clear search"
+                  aria-label="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -267,7 +270,8 @@ export default function Expenses() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer"
+                aria-label="Filter by category"
               >
                 <option value="">All Categories</option>
                 {categories.map((c) => (
@@ -280,43 +284,45 @@ export default function Expenses() {
 
             {/* Start Date */}
             <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 title="Start Date"
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                aria-label="Start Date"
+                className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg pl-8 pr-2.5 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer font-mono"
               />
             </div>
 
             {/* End Date */}
             <div className="relative">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 title="End Date"
-                className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                aria-label="End Date"
+                className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg pl-8 pr-2.5 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer font-mono"
               />
             </div>
           </div>
 
           {/* Active Filter Chips & Sort Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1E293B] text-xs">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-foundation-border text-xs">
+            <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-gray-400 font-medium flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                <SlidersHorizontal className="w-3.5 h-3.5 text-brand-tealLight" />
                 <span>Sort:</span>
               </span>
 
               <button
                 onClick={() => handleSortToggle('date')}
-                className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                   sortBy === 'date'
-                    ? 'bg-blue-600/15 border-blue-500/40 text-blue-300'
-                    : 'bg-[#1A2234] border-[#2D3748] text-gray-400 hover:text-gray-200'
+                    ? 'bg-brand-teal/15 border-brand-teal/30 text-brand-tealLight font-semibold'
+                    : 'bg-foundation-surfaceElevated border-foundation-borderSubtle text-gray-400 hover:text-gray-200'
                 }`}
               >
                 <span>Date</span>
@@ -326,10 +332,10 @@ export default function Expenses() {
 
               <button
                 onClick={() => handleSortToggle('amount')}
-                className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                   sortBy === 'amount'
-                    ? 'bg-blue-600/15 border-blue-500/40 text-blue-300'
-                    : 'bg-[#1A2234] border-[#2D3748] text-gray-400 hover:text-gray-200'
+                    ? 'bg-brand-teal/15 border-brand-teal/30 text-brand-tealLight font-semibold'
+                    : 'bg-foundation-surfaceElevated border-foundation-borderSubtle text-gray-400 hover:text-gray-200'
                 }`}
               >
                 <span>Amount</span>
@@ -341,7 +347,7 @@ export default function Expenses() {
             {/* Filter Summary & Reset Action */}
             <div className="flex items-center gap-2">
               {activeFilterCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-medium border border-blue-500/20">
+                <span className="px-2 py-0.5 rounded bg-foundation-input text-gray-400 text-[11px] font-mono border border-foundation-borderSubtle">
                   {activeFilterCount} active {activeFilterCount === 1 ? 'filter' : 'filters'}
                 </span>
               )}
@@ -349,10 +355,10 @@ export default function Expenses() {
               {activeFilterCount > 0 && (
                 <button
                   onClick={handleResetFilters}
-                  className="text-xs text-gray-400 hover:text-blue-300 flex items-center gap-1 font-medium px-2 py-1 rounded-lg hover:bg-[#1A2234] transition-colors cursor-pointer"
+                  className="text-xs text-gray-400 hover:text-brand-tealLight flex items-center gap-1 font-medium px-2 py-1 rounded-md hover:bg-foundation-surfaceElevated transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  <span>Reset Filters</span>
+                  <span>Reset</span>
                 </button>
               )}
             </div>
@@ -360,15 +366,15 @@ export default function Expenses() {
         </div>
 
         {/* Expenses Table Card */}
-        <div className="rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl overflow-hidden">
+        <div className="rounded-xl bg-foundation-surface border border-foundation-border shadow-sm overflow-hidden">
           {/* Table Header Summary Strip */}
-          <div className="p-4 px-6 bg-[#0F172A]/90 border-b border-[#1E293B] flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
+          <div className="p-3.5 px-5 bg-foundation-surfaceElevated/60 border-b border-foundation-border flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
               <span className="font-semibold text-gray-200">
                 {expenses.length} {expenses.length === 1 ? 'Transaction' : 'Transactions'}
               </span>
               {selectedCategoryName && (
-                <span className="px-2 py-0.5 rounded-md bg-[#1E293B] text-gray-300 text-[11px] border border-[#334155]">
+                <span className="px-2 py-0.5 rounded bg-foundation-surface text-gray-300 text-[11px] border border-foundation-border">
                   Category: {selectedCategoryName}
                 </span>
               )}
@@ -376,21 +382,21 @@ export default function Expenses() {
 
             <div className="flex items-center gap-2">
               <span className="text-gray-400">Total Spent:</span>
-              <span className="font-mono font-bold text-rose-400 text-sm">
+              <span className="font-mono tabular-nums font-bold text-rose-400 text-sm">
                 {formatCurrency(totalFilteredAmount)}
               </span>
             </div>
           </div>
 
           {error && (
-            <div className="p-4 bg-rose-500/10 border-b border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+            <div className="p-3.5 bg-rose-500/10 border-b border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {loading ? (
-            <LoadingState message="Loading your expenses..." minHeight="min-h-[350px]" />
+            <TableSkeleton rows={6} />
           ) : expenses.length === 0 ? (
             <EmptyState
               title={activeFilterCount > 0 ? 'No matching expenses' : 'No expenses recorded'}
@@ -402,83 +408,85 @@ export default function Expenses() {
               actionText={activeFilterCount > 0 ? 'Reset Filters' : 'Record New Expense'}
               onAction={activeFilterCount > 0 ? handleResetFilters : handleOpenAdd}
               icon={Receipt}
-              minHeight="min-h-[280px]"
+              minHeight="min-h-[260px]"
             />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs min-w-[640px]">
                 <thead>
-                  <tr className="border-b border-[#1E293B] bg-[#0F172A]/50 text-[11px] font-semibold uppercase text-gray-400 select-none">
+                  <tr className="border-b border-foundation-border bg-foundation-surfaceElevated/30 text-[11px] font-semibold uppercase text-gray-400 select-none">
                     <th
                       onClick={() => handleSortToggle('date')}
-                      className="py-3.5 pl-6 cursor-pointer hover:text-white transition-colors"
+                      className="py-3 pl-5 cursor-pointer hover:text-white transition-colors"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>Date</span>
                         {sortBy === 'date' ? (
-                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-400" /> : <ArrowDown className="w-3 h-3 text-blue-400" />
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-brand-tealLight" /> : <ArrowDown className="w-3 h-3 text-brand-tealLight" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 text-gray-600" />
                         )}
                       </div>
                     </th>
-                    <th className="py-3.5 px-4">Category</th>
-                    <th className="py-3.5 px-4">Description</th>
-                    <th className="py-3.5 px-4">Payment Mode</th>
+                    <th className="py-3 px-3">Category</th>
+                    <th className="py-3 px-3">Description</th>
+                    <th className="py-3 px-3">Payment Mode</th>
                     <th
                       onClick={() => handleSortToggle('amount')}
-                      className="py-3.5 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                      className="py-3 px-3 text-right cursor-pointer hover:text-white transition-colors"
                     >
                       <div className="flex items-center justify-end gap-1.5">
                         <span>Amount</span>
                         {sortBy === 'amount' ? (
-                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-400" /> : <ArrowDown className="w-3 h-3 text-blue-400" />
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-brand-tealLight" /> : <ArrowDown className="w-3 h-3 text-brand-tealLight" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 text-gray-600" />
                         )}
                       </div>
                     </th>
-                    <th className="py-3.5 pr-6 text-center">Actions</th>
+                    <th className="py-3 pr-5 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1E293B]/60">
+                <tbody className="divide-y divide-foundation-borderSubtle">
                   {expenses.map((exp) => (
-                    <tr key={exp.expenseId} className="hover:bg-[#1E293B]/40 transition-colors">
-                      <td className="py-3.5 pl-6 text-gray-300 font-mono text-[11px] whitespace-nowrap">
+                    <tr key={exp.expenseId} className="hover:bg-foundation-surfaceElevated/50 transition-colors">
+                      <td className="py-3 pl-5 text-gray-300 font-mono tabular-nums text-[11px] whitespace-nowrap">
                         {formatDate(exp.expenseDate)}
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="px-2.5 py-1 rounded-md bg-[#1E293B] border border-[#334155] text-gray-200 font-medium text-[11px]">
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded bg-foundation-surfaceElevated border border-foundation-borderSubtle text-gray-200 text-[11px]">
                           {exp.categoryName || 'General'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-gray-200 font-medium max-w-[240px]">
+                      <td className="py-3 px-3 text-gray-200 font-medium max-w-[240px]">
                         <span className="line-clamp-1" title={exp.description || '—'}>
                           {exp.description || '—'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#1A2234] text-gray-300 text-[11px] border border-[#2D3748]">
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-foundation-surfaceElevated text-gray-300 text-[11px] border border-foundation-borderSubtle">
                           <CreditCard className="w-3 h-3 text-gray-400" />
                           <span>{exp.paymentMode || 'Cash'}</span>
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400 text-sm whitespace-nowrap">
+                      <td className="py-3 px-3 text-right font-mono tabular-nums font-semibold text-rose-400 text-xs sm:text-sm whitespace-nowrap">
                         -{formatCurrency(exp.amount)}
                       </td>
-                      <td className="py-3.5 pr-6 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="py-3 pr-5 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleOpenEdit(exp)}
                             title="Edit Expense"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+                            aria-label="Edit Expense"
+                            className="p-1 rounded-md text-gray-400 hover:text-brand-tealLight hover:bg-foundation-surfaceElevated transition-colors cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDeleteClick(exp)}
                             title="Delete Expense"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            aria-label="Delete Expense"
+                            className="p-1 rounded-md text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -495,34 +503,35 @@ export default function Expenses() {
 
       {/* Add / Edit Expense Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
-              <h3 className="text-lg font-bold text-white tracking-tight">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-foundation-surface border border-foundation-border rounded-xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3.5 border-b border-foundation-border">
+              <h3 className="text-base font-bold text-white tracking-tight">
                 {editingExpense ? 'Edit Expense' : 'Add New Expense'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-gray-400 hover:text-white p-1 rounded-md transition-colors cursor-pointer"
+                aria-label="Close dialog"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+              <div className="mt-3.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{modalError}</span>
               </div>
             )}
 
-            <form onSubmit={handleFormSubmit} className="mt-4 space-y-4 text-xs">
+            <form onSubmit={handleFormSubmit} className="mt-4 space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                <label className="block font-semibold text-gray-300 mb-1">
                   Amount (₹) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-gray-400 font-mono text-sm">₹</span>
+                  <span className="absolute left-3 top-2.5 text-gray-400 font-mono text-sm pointer-events-none">₹</span>
                   <input
                     type="number"
                     step="0.01"
@@ -531,20 +540,20 @@ export default function Expenses() {
                     onChange={(e) => setFormAmount(e.target.value)}
                     placeholder="0.00"
                     required
-                    className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg pl-7 pr-3 py-2 text-xs sm:text-sm text-gray-100 font-mono tabular-nums focus:outline-none focus:border-brand-tealLight focus:ring-1 focus:ring-brand-tealLight"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                <label className="block font-semibold text-gray-300 mb-1">
                   Category *
                 </label>
                 <select
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
                   required
-                  className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer"
                 >
                   <option value="" disabled>Select category</option>
                   {categories.map((c) => (
@@ -556,21 +565,21 @@ export default function Expenses() {
               </div>
 
               <div>
-                <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                <label className="block font-semibold text-gray-300 mb-1">
                   Description / Merchant
                 </label>
                 <input
                   type="text"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="e.g. Starbucks, Groceries, Electricity Bill"
-                  className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3.5 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. Groceries, Electricity Bill, Train ticket"
+                  className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-100 focus:outline-none focus:border-brand-tealLight"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  <label className="block font-semibold text-gray-300 mb-1">
                     Date *
                   </label>
                   <input
@@ -578,18 +587,18 @@ export default function Expenses() {
                     value={formDate}
                     onChange={(e) => setFormDate(e.target.value)}
                     required
-                    className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  <label className="block font-semibold text-gray-300 mb-1">
                     Payment Mode
                   </label>
                   <select
                     value={formPaymentMode}
                     onChange={(e) => setFormPaymentMode(e.target.value)}
-                    className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    className="w-full bg-foundation-input border border-foundation-inputBorder rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-brand-tealLight cursor-pointer"
                   >
                     <option value="UPI">UPI</option>
                     <option value="Cash">Cash</option>
@@ -600,18 +609,18 @@ export default function Expenses() {
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#1E293B]">
+              <div className="pt-3.5 flex items-center justify-end gap-2.5 border-t border-foundation-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer text-xs font-semibold"
+                  className="px-3.5 py-2 rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={modalSubmitting}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg shadow-blue-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealLight text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {modalSubmitting ? (
                     <>
@@ -636,7 +645,7 @@ export default function Expenses() {
           deleteExpenseItem ? formatCurrency(deleteExpenseItem.amount) : ''
         } for "${deleteExpenseItem?.categoryName || 'General'}"${
           deleteExpenseItem?.description ? ` (${deleteExpenseItem.description})` : ''
-        }? This action cannot be undone.`}
+        }? This record will be permanently removed.`}
         confirmText="Delete Expense"
         variant="danger"
         loading={deleting}

@@ -27,8 +27,8 @@ import {
 } from 'recharts';
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
-import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
+import { DashboardSkeleton } from '../components/Skeleton';
 import { analyticsService } from '../services/analyticsService';
 import { budgetService } from '../services/budgetService';
 import { AnalyticsSummary, BudgetAlert } from '../types';
@@ -36,15 +36,15 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { formatDate, getCurrentMonthAndYear } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
-const PIE_COLORS = [
-  '#3B82F6', // Blue
-  '#8B5CF6', // Purple
-  '#10B981', // Emerald
-  '#F59E0B', // Amber
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#6366F1', // Indigo
-  '#F97316', // Orange
+const CHART_COLORS = [
+  '#14b8a6', // Deep Teal
+  '#38bdf8', // Sky
+  '#6366f1', // Slate Indigo
+  '#f59e0b', // Amber
+  '#ec4899', // Rose-Pink
+  '#10b981', // Emerald
+  '#8b5cf6', // Violet
+  '#64748b', // Slate Neutral
 ];
 
 export default function Dashboard() {
@@ -101,10 +101,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#0B0F19]">
+    <div className="flex-1 flex flex-col min-h-0 bg-foundation-bg">
       <Header
         title="Financial Dashboard"
-        subtitle="Real-time financial summary and spending insights"
+        subtitle="Real-time spending overview and budget tracking"
         month={month}
         year={year}
         onMonthChange={setMonth}
@@ -113,14 +113,14 @@ export default function Dashboard() {
 
       <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8">
         {error && (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0" />
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
             <button
               onClick={loadDashboardData}
-              className="text-xs bg-rose-500/20 px-3 py-1.5 rounded-lg hover:bg-rose-500/30 transition-colors cursor-pointer"
+              className="text-xs bg-rose-500/15 px-3 py-1.5 rounded-lg hover:bg-rose-500/25 transition-colors cursor-pointer font-medium"
             >
               Retry
             </button>
@@ -128,7 +128,7 @@ export default function Dashboard() {
         )}
 
         {loading ? (
-          <LoadingState message="Loading financial analytics..." minHeight="min-h-[400px]" />
+          <DashboardSkeleton />
         ) : (
           <>
             {/* 1. Primary Financial KPI Cards */}
@@ -143,7 +143,7 @@ export default function Dashboard() {
               <StatCard
                 title="Monthly Budget"
                 value={formatCurrency(analytics?.totalBudget || 0)}
-                subtitle="Allocated category budgets"
+                subtitle="Allocated category limits"
                 icon={Wallet}
                 variant="blue"
               />
@@ -152,10 +152,10 @@ export default function Dashboard() {
                 value={formatCurrency(analytics?.remainingBudget || 0)}
                 subtitle={
                   isOverBudget
-                    ? 'Over budget cap'
+                    ? 'Over budget limit'
                     : analytics?.totalBudget === 0
                     ? 'No budget allocated'
-                    : 'Available spending buffer'
+                    : 'Available spending balance'
                 }
                 icon={Scale}
                 variant={isOverBudget ? 'rose' : 'emerald'}
@@ -169,7 +169,7 @@ export default function Dashboard() {
                     : 'No spending recorded'
                 }
                 icon={Award}
-                variant="purple"
+                variant="teal"
               />
             </div>
 
@@ -179,15 +179,15 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      Budget Health & Threshold Alerts
+                      Budget Threshold Alerts
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-md bg-foundation-surfaceElevated border border-foundation-border text-gray-300 text-[10px] font-mono font-medium">
                       {alerts.length} active
                     </span>
                   </div>
                   <Link
                     to="/budgets"
-                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium transition-colors"
+                    className="text-xs text-brand-tealLight hover:underline flex items-center gap-1 font-medium transition-colors"
                   >
                     <span>Manage Budgets</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
@@ -198,30 +198,22 @@ export default function Dashboard() {
                   {alerts.map((alert) => {
                     const isExceeded = alert.status === 'EXCEEDED';
                     const isWarning = alert.status === 'WARNING';
-                    const isApproaching = alert.status === 'APPROACHING';
 
-                    let barColor = 'bg-emerald-500';
-                    let badgeClass = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-                    let cardBorder = 'border-emerald-500/30 bg-emerald-500/5';
+                    let barColor = 'bg-brand-teal';
+                    let badgeClass = 'bg-brand-teal/10 text-brand-tealLight border-brand-teal/20';
 
                     if (isExceeded) {
-                      barColor = 'bg-rose-500';
-                      badgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-                      cardBorder = 'border-rose-500/30 bg-rose-500/5';
+                      barColor = 'bg-semantic-rose';
+                      badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                     } else if (isWarning) {
-                      barColor = 'bg-amber-500';
-                      badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-                      cardBorder = 'border-amber-500/30 bg-amber-500/5';
-                    } else if (isApproaching) {
-                      barColor = 'bg-blue-500';
-                      badgeClass = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
-                      cardBorder = 'border-blue-500/30 bg-blue-500/5';
+                      barColor = 'bg-semantic-amber';
+                      badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
                     }
 
                     return (
                       <div
                         key={alert.budgetId}
-                        className={`p-4 rounded-xl border ${cardBorder} shadow-sm flex flex-col justify-between transition-all`}
+                        className="p-4 rounded-xl bg-foundation-surface border border-foundation-border flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-center justify-between gap-2">
@@ -231,17 +223,17 @@ export default function Dashboard() {
                               ) : isWarning ? (
                                 <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
                               ) : (
-                                <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
+                                <CheckCircle2 className="w-4 h-4 text-brand-tealLight shrink-0" />
                               )}
-                              <span className="font-semibold text-sm text-white truncate">
+                              <span className="font-semibold text-xs sm:text-sm text-white truncate">
                                 {alert.categoryName}
                               </span>
                             </div>
 
                             <span
-                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${badgeClass} shrink-0`}
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${badgeClass} shrink-0`}
                             >
-                              {alert.percentageUsed}% used
+                              {alert.percentageUsed}%
                             </span>
                           </div>
 
@@ -250,9 +242,9 @@ export default function Dashboard() {
                           </p>
                         </div>
 
-                        {/* Visual Progress Track */}
+                        {/* Progress Track */}
                         <div className="mt-3 pt-2">
-                          <div className="w-full h-1.5 rounded-full bg-[#1A2234] border border-[#2D3748] overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full bg-foundation-input border border-foundation-borderSubtle overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                               style={{ width: `${Math.min(alert.percentageUsed, 100)}%` }}
@@ -269,16 +261,16 @@ export default function Dashboard() {
             {/* 3. Visual Charts Grid (Donut Chart & Monthly Spending Trends) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
               {/* Category Breakdown Donut Chart with Central KPI */}
-              <div className="p-5 sm:p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col">
+              <div className="p-5 sm:p-6 rounded-xl bg-foundation-surface border border-foundation-border flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
                       Spending by Category
                     </h3>
                     <p className="text-xs text-gray-400">Monthly expense allocation across categories</p>
                   </div>
                   {hasExpenses && (
-                    <span className="text-xs font-mono font-semibold text-gray-300 px-2.5 py-1 rounded-lg bg-[#1E293B]">
+                    <span className="text-xs font-mono font-medium text-gray-400 px-2 py-0.5 rounded bg-foundation-surfaceElevated border border-foundation-border">
                       {analytics?.categoryBreakdown?.length || 0} Categories
                     </span>
                   )}
@@ -292,8 +284,7 @@ export default function Dashboard() {
                   />
                 ) : (
                   <>
-                    {/* Donut Chart with Centered Total Spent KPI */}
-                    <div className="relative h-[280px] w-full flex items-center justify-center">
+                    <div className="relative h-[270px] w-full flex items-center justify-center">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -303,22 +294,24 @@ export default function Dashboard() {
                             cx="50%"
                             cy="50%"
                             innerRadius={72}
-                            outerRadius={98}
+                            outerRadius={96}
                             paddingAngle={3}
-                            stroke="#111827"
+                            stroke="#131923"
                             strokeWidth={2}
                           >
                             {analytics?.categoryBreakdown.map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                             ))}
                           </Pie>
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: '#0F172A',
-                              borderColor: '#334155',
-                              borderRadius: '12px',
-                              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
-                              padding: '10px 14px',
+                              backgroundColor: '#1a2230',
+                              borderColor: '#263345',
+                              borderRadius: '8px',
+                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+                              padding: '8px 12px',
+                              fontSize: '12px',
+                              color: '#f1f5f9',
                             }}
                             formatter={(value: unknown, name: unknown) => [
                               formatCurrency(Number(value)),
@@ -328,23 +321,23 @@ export default function Dashboard() {
                         </PieChart>
                       </ResponsiveContainer>
 
-                      {/* Central Hole KPI Overlay */}
+                      {/* Central Total KPI */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                           Total Spent
                         </span>
-                        <span className="text-xl sm:text-2xl font-bold text-white tracking-tight font-mono mt-0.5">
+                        <span className="text-xl sm:text-2xl font-bold text-white tracking-tight font-mono tabular-nums mt-0.5">
                           {formatCurrency(analytics?.totalExpenses || 0)}
                         </span>
-                        <span className="text-[10px] text-gray-500 mt-0.5">
-                          {analytics?.transactionCount || 0} Transactions
+                        <span className="text-[10px] text-gray-400 mt-0.5">
+                          {analytics?.transactionCount || 0} Entries
                         </span>
                       </div>
                     </div>
 
-                    {/* Category Legend with Clear Percentages and Values */}
+                    {/* Category Legend */}
                     {analytics?.categoryBreakdown && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-4 border-t border-[#1E293B]">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-4 border-t border-foundation-border">
                         {analytics.categoryBreakdown.map((cat, idx) => {
                           const total = analytics.totalExpenses || 1;
                           const pct = Math.round((cat.amount / total) * 100);
@@ -352,22 +345,22 @@ export default function Dashboard() {
                           return (
                             <div
                               key={cat.categoryName}
-                              className="flex items-center justify-between p-2 rounded-xl bg-[#1A2234]/60 border border-[#2D3748]/60 text-xs text-gray-300 hover:border-[#334155] transition-colors"
+                              className="flex items-center justify-between p-2 rounded-lg bg-foundation-surfaceElevated/60 border border-foundation-borderSubtle text-xs text-gray-300"
                             >
                               <div className="flex items-center gap-2 min-w-0 pr-2">
                                 <div
                                   className="w-2.5 h-2.5 rounded-full shrink-0"
-                                  style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
+                                  style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
                                 />
                                 <span className="truncate font-medium text-gray-200">
                                   {cat.categoryName}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0 font-mono">
+                              <div className="flex items-center gap-2 shrink-0 font-mono tabular-nums">
                                 <span className="text-gray-300 font-semibold">
                                   {formatCurrency(cat.amount)}
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold">
+                                <span className="px-1.5 py-0.2 rounded bg-foundation-input text-gray-400 text-[10px] font-bold">
                                   {pct}%
                                 </span>
                               </div>
@@ -381,18 +374,18 @@ export default function Dashboard() {
               </div>
 
               {/* Monthly Spending Trend Bar Chart */}
-              <div className="p-5 sm:p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col justify-between">
+              <div className="p-5 sm:p-6 rounded-xl bg-foundation-surface border border-foundation-border flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
                         Monthly Spending Trends
                       </h3>
-                      <p className="text-xs text-gray-400">Historical spending trajectory over the past 6 months</p>
+                      <p className="text-xs text-gray-400">Historical spending trajectory over past 6 months</p>
                     </div>
                   </div>
 
-                  <div className="h-[280px] w-full mt-2">
+                  <div className="h-[270px] w-full mt-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={analytics?.monthlySpending}
@@ -400,37 +393,36 @@ export default function Dashboard() {
                       >
                         <defs>
                           <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.95} />
-                            <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.7} />
+                            <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.9} />
+                            <stop offset="100%" stopColor="#0d9488" stopOpacity={0.6} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                         <XAxis
                           dataKey="month"
                           stroke="#64748B"
                           fontSize={11}
                           tickLine={false}
-                          axisLine={{ stroke: '#1E293B' }}
+                          axisLine={{ stroke: '#222c3c' }}
                         />
                         <YAxis
                           stroke="#64748B"
                           fontSize={11}
                           tickLine={false}
-                          axisLine={{ stroke: '#1E293B' }}
+                          axisLine={{ stroke: '#222c3c' }}
                           tickFormatter={(val) => (val >= 1000 ? `₹${(val / 1000).toFixed(0)}k` : `₹${val}`)}
                         />
                         <Tooltip
-                          cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
+                          cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
                               const item = payload[0].payload;
                               return (
-                                <div className="p-3 bg-[#0F172A] border border-[#334155] rounded-xl shadow-xl text-xs">
+                                <div className="p-2.5 bg-foundation-surfaceElevated border border-foundation-border rounded-lg text-xs">
                                   <p className="text-gray-400 font-medium">{item.month}</p>
-                                  <p className="text-sm font-bold text-white font-mono mt-1">
+                                  <p className="text-sm font-bold text-white font-mono tabular-nums mt-1">
                                     {formatCurrency(Number(payload[0].value))}
                                   </p>
-                                  <p className="text-[10px] text-blue-400 mt-0.5">Total Outflow</p>
                                 </div>
                               );
                             }
@@ -440,17 +432,17 @@ export default function Dashboard() {
                         <Bar
                           dataKey="amount"
                           fill="url(#barGradient)"
-                          radius={[6, 6, 0, 0]}
-                          maxBarSize={44}
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={40}
                         />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-[#1E293B] flex items-center justify-between text-xs text-gray-400">
-                  <span>6-Month Continuous Record</span>
-                  <span className="font-medium text-blue-400 font-mono">Actual MySQL Data</span>
+                <div className="mt-4 pt-3 border-t border-foundation-border flex items-center justify-between text-xs text-gray-400">
+                  <span>6-Month Trajectory</span>
+                  <span className="font-medium text-brand-tealLight font-mono">Actual Records</span>
                 </div>
               </div>
             </div>
@@ -458,22 +450,22 @@ export default function Dashboard() {
             {/* 4. Spending Trajectory (Area Chart) & Recent Transactions Table */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
               {/* Spending Trajectory Curve */}
-              <div className="lg:col-span-1 p-5 sm:p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col justify-between">
+              <div className="lg:col-span-1 p-5 sm:p-6 rounded-xl bg-foundation-surface border border-foundation-border flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                        Spending Trajectory
+                      <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                        Trend Curve
                       </h3>
-                      <p className="text-xs text-gray-400">Cumulative trend curve</p>
+                      <p className="text-xs text-gray-400">Month-over-month trajectory</p>
                     </div>
 
                     {trajectoryDeltaText && (
                       <span
-                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 shrink-0 ${
+                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1 shrink-0 ${
                           isTrajectoryUp
-                            ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                            : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         }`}
                       >
                         {isTrajectoryUp ? (
@@ -486,7 +478,7 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  <div className="h-[220px] w-full mt-4">
+                  <div className="h-[210px] w-full mt-3">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
                         data={analytics?.monthlySpending}
@@ -494,23 +486,23 @@ export default function Dashboard() {
                       >
                         <defs>
                           <linearGradient id="trajectoryGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.35} />
-                            <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.0} />
+                            <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.2} />
+                            <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.0} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                         <XAxis
                           dataKey="month"
                           stroke="#64748B"
                           fontSize={11}
                           tickLine={false}
-                          axisLine={{ stroke: '#1E293B' }}
+                          axisLine={{ stroke: '#222c3c' }}
                         />
                         <YAxis
                           stroke="#64748B"
                           fontSize={11}
                           tickLine={false}
-                          axisLine={{ stroke: '#1E293B' }}
+                          axisLine={{ stroke: '#222c3c' }}
                           tickFormatter={(val) => (val >= 1000 ? `₹${(val / 1000).toFixed(0)}k` : `₹${val}`)}
                         />
                         <Tooltip
@@ -518,9 +510,9 @@ export default function Dashboard() {
                             if (active && payload && payload.length) {
                               const item = payload[0].payload;
                               return (
-                                <div className="p-3 bg-[#0F172A] border border-[#334155] rounded-xl shadow-xl text-xs">
+                                <div className="p-2.5 bg-foundation-surfaceElevated border border-foundation-border rounded-lg text-xs">
                                   <p className="text-gray-400 font-medium">{item.month}</p>
-                                  <p className="text-sm font-bold text-purple-300 font-mono mt-1">
+                                  <p className="text-sm font-bold text-sky-400 font-mono tabular-nums mt-1">
                                     {formatCurrency(Number(payload[0].value))}
                                   </p>
                                 </div>
@@ -532,36 +524,36 @@ export default function Dashboard() {
                         <Area
                           type="monotone"
                           dataKey="amount"
-                          stroke="#8B5CF6"
-                          strokeWidth={2.5}
+                          stroke="#38bdf8"
+                          strokeWidth={2}
                           fill="url(#trajectoryGradient)"
-                          dot={{ fill: '#8B5CF6', r: 3.5, strokeWidth: 2, stroke: '#111827' }}
-                          activeDot={{ r: 5, fill: '#A78BFA', strokeWidth: 2, stroke: '#FFFFFF' }}
+                          dot={{ fill: '#38bdf8', r: 3, strokeWidth: 1.5, stroke: '#131923' }}
+                          activeDot={{ r: 4, fill: '#38bdf8', strokeWidth: 1.5, stroke: '#FFFFFF' }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#1E293B] text-[11px] text-gray-400 flex items-center justify-between">
-                  <span>Trend Momentum</span>
-                  <span className="text-purple-400 font-medium">Historical Pace</span>
+                <div className="mt-4 pt-3 border-t border-foundation-border text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>Outflow Pace</span>
+                  <span className="text-gray-300 font-mono">Continuous</span>
                 </div>
               </div>
 
               {/* Recent Transactions Table */}
-              <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col justify-between">
+              <div className="lg:col-span-2 p-5 sm:p-6 rounded-xl bg-foundation-surface border border-foundation-border flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
                         Recent Transactions
                       </h3>
                       <p className="text-xs text-gray-400">Latest recorded expenses in your account</p>
                     </div>
                     <Link
                       to="/expenses"
-                      className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold transition-colors"
+                      className="text-xs text-brand-tealLight hover:underline flex items-center gap-1 font-medium transition-colors"
                     >
                       <span>View All</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
@@ -572,37 +564,37 @@ export default function Dashboard() {
                     <EmptyState
                       title="No recent expenses"
                       description="You haven't recorded any expenses yet."
-                      minHeight="min-h-[200px]"
+                      minHeight="min-h-[190px]"
                       icon={Receipt}
                     />
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs min-w-[420px]">
                         <thead>
-                          <tr className="border-b border-[#1E293B] text-[11px] font-semibold uppercase text-gray-400">
-                            <th className="pb-3 pl-2">Description</th>
-                            <th className="pb-3">Category</th>
-                            <th className="pb-3">Date</th>
-                            <th className="pb-3">Mode</th>
-                            <th className="pb-3 text-right pr-2">Amount</th>
+                          <tr className="border-b border-foundation-border text-[11px] font-semibold uppercase text-gray-400">
+                            <th className="pb-2.5 pl-2">Description</th>
+                            <th className="pb-2.5">Category</th>
+                            <th className="pb-2.5">Date</th>
+                            <th className="pb-2.5">Mode</th>
+                            <th className="pb-2.5 text-right pr-2">Amount</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#1E293B]/60 text-xs">
+                        <tbody className="divide-y divide-foundation-borderSubtle text-xs">
                           {analytics.recentTransactions.map((exp) => (
-                            <tr key={exp.expenseId} className="hover:bg-[#1E293B]/30 transition-colors">
-                              <td className="py-3 pl-2 font-medium text-gray-200">
+                            <tr key={exp.expenseId} className="hover:bg-foundation-surfaceElevated/50 transition-colors">
+                              <td className="py-2.5 pl-2 font-medium text-gray-200">
                                 {exp.description || 'Expense'}
                               </td>
-                              <td className="py-3 text-gray-300">
-                                <span className="px-2 py-0.5 rounded-md bg-[#1E293B] border border-[#334155] text-[11px]">
+                              <td className="py-2.5 text-gray-300">
+                                <span className="px-2 py-0.5 rounded bg-foundation-surfaceElevated border border-foundation-borderSubtle text-[11px]">
                                   {exp.categoryName || 'General'}
                                 </span>
                               </td>
-                              <td className="py-3 text-gray-400 font-mono text-[11px]">
+                              <td className="py-2.5 text-gray-400 font-mono tabular-nums text-[11px]">
                                 {formatDate(exp.expenseDate)}
                               </td>
-                              <td className="py-3 text-gray-400">{exp.paymentMode}</td>
-                              <td className="py-3 text-right pr-2 font-semibold text-rose-400 font-mono">
+                              <td className="py-2.5 text-gray-400">{exp.paymentMode}</td>
+                              <td className="py-2.5 text-right pr-2 font-semibold text-rose-400 font-mono tabular-nums">
                                 -{formatCurrency(exp.amount)}
                               </td>
                             </tr>
@@ -613,9 +605,9 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-gray-400">
-                  <span>Up to 5 Most Recent Entries</span>
-                  <Link to="/expenses" className="text-blue-400 hover:text-blue-300 text-[11px] font-medium">
+                <div className="mt-4 pt-3 border-t border-foundation-border flex items-center justify-between text-xs text-gray-400">
+                  <span>5 Most Recent Entries</span>
+                  <Link to="/expenses" className="text-brand-tealLight hover:underline text-[11px] font-medium">
                     Filter & Search &rarr;
                   </Link>
                 </div>

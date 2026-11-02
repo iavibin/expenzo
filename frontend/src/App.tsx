@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -11,13 +12,15 @@ import Expenses from './pages/Expenses';
 import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, token, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+      <div className="min-h-screen bg-foundation-bg flex items-center justify-center">
         <LoadingState message="Verifying session..." minHeight="min-h-[200px]" />
       </div>
     );
@@ -35,7 +38,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+      <div className="min-h-screen bg-foundation-bg flex items-center justify-center">
         <LoadingState message="Checking session..." minHeight="min-h-[200px]" />
       </div>
     );
@@ -55,7 +58,7 @@ export default function App() {
         <SidebarProvider>
           <BrowserRouter>
             <Routes>
-              {/* Public Routes */}
+              {/* Public Auth Routes */}
               <Route
                 path="/login"
                 element={
@@ -72,6 +75,10 @@ export default function App() {
                   </PublicRoute>
                 }
               />
+
+              {/* Public Legal Pages */}
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
 
               {/* Protected Application Routes */}
               <Route
