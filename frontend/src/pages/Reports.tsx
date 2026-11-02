@@ -12,12 +12,14 @@ import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../context/ToastContext';
 import { reportService } from '../services/reportService';
 import { MonthlyReport } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { getCurrentMonthAndYear, formatMonthName } from '../utils/dateUtils';
 
 export default function Reports() {
+  const { showSuccess, showError } = useToast();
   const current = getCurrentMonthAndYear();
   const [month, setMonth] = useState(current.month);
   const [year, setYear] = useState(current.year);
@@ -49,8 +51,9 @@ export default function Reports() {
     setExporting(true);
     try {
       await reportService.downloadExportCsv(month, year);
+      showSuccess(`Report for ${formatMonthName(month)} ${year} exported successfully as CSV`);
     } catch (err: unknown) {
-      alert((err as Error).message || 'Failed to download CSV export.');
+      showError((err as Error).message || 'Failed to download CSV export.');
     } finally {
       setExporting(false);
     }
@@ -71,24 +74,25 @@ export default function Reports() {
           <button
             onClick={handleExportCsv}
             disabled={exporting}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            className="px-3 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer disabled:opacity-50 shrink-0"
           >
             {exporting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Generating CSV...</span>
+                <span>Generating...</span>
               </>
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>Export CSV</span>
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">Export</span>
               </>
             )}
           </button>
         }
       />
 
-      <div className="flex-1 p-8 overflow-y-auto space-y-8">
+      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-8">
         {error && (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />

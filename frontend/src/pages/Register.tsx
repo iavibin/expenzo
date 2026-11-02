@@ -57,7 +57,7 @@ export default function Register() {
             <WalletCards className="w-7 h-7 text-white" />
           </div>
           <h2 className="text-2xl font-extrabold text-white tracking-tight">Create Account</h2>
-          <p className="text-sm text-gray-400 mt-1">Start tracking your personal finances with Expenzo 2.0</p>
+          <p className="text-sm text-gray-400 mt-1">Start tracking your personal finances with Expenzo</p>
         </div>
 
         {error && (

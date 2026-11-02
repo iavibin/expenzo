@@ -13,6 +13,8 @@ import {
 import Header from '../components/Header';
 import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useToast } from '../context/ToastContext';
 import { budgetService, BudgetPayload } from '../services/budgetService';
 import { categoryService } from '../services/categoryService';
 import { Budget, Category } from '../types';
@@ -20,6 +22,7 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { getCurrentMonthAndYear } from '../utils/dateUtils';
 
 export default function Budgets() {
+  const { showSuccess, showError } = useToast();
   const current = getCurrentMonthAndYear();
   const [month, setMonth] = useState(current.month);
   const [year, setYear] = useState(current.year);
@@ -34,6 +37,10 @@ export default function Budgets() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Delete State
+  const [deleteBudgetItem, setDeleteBudgetItem] = useState<Budget | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Form Fields
   const [formCategory, setFormCategory] = useState('');
@@ -107,8 +114,10 @@ export default function Budgets() {
     try {
       if (editingBudget) {
         await budgetService.updateBudget(editingBudget.budgetId, payload);
+        showSuccess('Budget updated successfully');
       } else {
         await budgetService.createBudget(payload);
+        showSuccess('Budget created successfully');
       }
       setIsModalOpen(false);
       loadBudgets();
@@ -120,15 +129,24 @@ export default function Budgets() {
     }
   };
 
-  // Handle Delete
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this budget?')) return;
+  // Trigger Delete Confirmation
+  const handleDeleteClick = (b: Budget) => {
+    setDeleteBudgetItem(b);
+  };
+
+  const confirmDeleteBudget = async () => {
+    if (!deleteBudgetItem) return;
+    setDeleting(true);
     try {
-      await budgetService.deleteBudget(id);
+      await budgetService.deleteBudget(deleteBudgetItem.budgetId);
+      showSuccess(`Budget for ${deleteBudgetItem.categoryName} removed successfully`);
+      setDeleteBudgetItem(null);
       loadBudgets();
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } } };
-      alert(errorObj.response?.data?.message || 'Failed to delete budget.');
+      showError(errorObj.response?.data?.message || 'Failed to delete budget.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -144,15 +162,16 @@ export default function Budgets() {
         actions={
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all cursor-pointer"
+            className="px-3 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Set Budget</span>
+            <span className="hidden sm:inline">Set Budget</span>
+            <span className="sm:hidden">Set</span>
           </button>
         }
       />
 
-      <div className="flex-1 p-8 overflow-y-auto space-y-6">
+      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
         {error && (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -196,84 +215,89 @@ export default function Budgets() {
               return (
                 <div
                   key={b.budgetId}
-                  className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col justify-between hover:border-[#334155] transition-all"
+                  className="p-5 sm:p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col justify-between hover:border-[#334155] transition-all"
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-base font-bold text-white tracking-tight">{b.categoryName}</h4>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeBg}`}>
-                          {b.status || 'NORMAL'}
+                    {/* Header: Category & Threshold Badge */}
+                    <div className="flex items-start justify-between gap-2 mb-4">
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-base text-white truncate">
+                          {b.categoryName}
+                        </h4>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Monthly Budget: <span className="text-gray-200 font-mono font-medium">{formatCurrency(b.budgetAmount)}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${badgeBg} flex items-center gap-1`}
+                        >
+                          {isExceeded ? (
+                            <AlertTriangle className="w-3 h-3" />
+                          ) : isWarning ? (
+                            <AlertCircle className="w-3 h-3" />
+                          ) : (
+                            <CheckCircle2 className="w-3 h-3" />
+                          )}
+                          <span>{b.status || 'NORMAL'}</span>
                         </span>
-                        <button
-                          onClick={() => handleOpenEdit(b)}
-                          title="Edit"
-                          className="p-1 rounded text-gray-400 hover:text-blue-400 transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(b.budgetId)}
-                          title="Delete"
-                          className="p-1 rounded text-gray-400 hover:text-rose-400 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="mt-5 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-gray-400">Used: {pct}%</span>
-                        <span className="text-gray-200">
-                          {formatCurrency(b.amountSpent)} / {formatCurrency(b.budgetAmount)}
+                    {/* Progress Bar with Percentage */}
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">Spent: <strong className="text-white font-mono">{formatCurrency(b.amountSpent)}</strong></span>
+                        <span className="font-mono font-bold text-gray-200">
+                          {pct}%
                         </span>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-[#1A2234] overflow-hidden">
+
+                      <div className="w-full h-2.5 rounded-full bg-[#1A2234] border border-[#2D3748] overflow-hidden relative">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />
                       </div>
-                    </div>
 
-                    {/* Remaining Info */}
-                    <div className="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs">
-                      <span className="text-gray-400">Remaining</span>
-                      <span
-                        className={`font-mono font-bold ${
-                          (b.remainingAmount ?? 0) < 0 ? 'text-rose-400' : 'text-emerald-400'
-                        }`}
-                      >
-                        {formatCurrency(b.remainingAmount)}
-                      </span>
+                      {/* Remaining / Overspent helper */}
+                      <div className="flex items-center justify-between text-[11px] pt-1 text-gray-400">
+                        {(() => {
+                          const remaining = b.remainingAmount ?? (b.budgetAmount - (b.amountSpent ?? 0));
+                          return (
+                            <span>
+                              {remaining < 0 ? (
+                                <span className="text-rose-400 font-semibold">
+                                  Exceeded by {formatCurrency(Math.abs(remaining))}
+                                </span>
+                              ) : (
+                                <span>Remaining: <strong className="text-emerald-400 font-mono">{formatCurrency(remaining)}</strong></span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-gray-500">Cap: {formatCurrency(b.budgetAmount)}</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Status Helper */}
-                  <div className="mt-4 flex items-center gap-2 text-[11px] text-gray-400">
-                    {isExceeded ? (
-                      <>
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                        <span className="text-rose-300 font-medium">Budget exceeded!</span>
-                      </>
-                    ) : isWarning ? (
-                      <>
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-amber-300 font-medium">Over 90% threshold reached.</span>
-                      </>
-                    ) : isApproaching ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-blue-300 font-medium">Over 75% threshold reached.</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-300 font-medium">Within safe budget limit.</span>
-                      </>
-                    )}
+                  {/* Card Actions */}
+                  <div className="mt-6 pt-4 border-t border-[#1E293B] flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => handleOpenEdit(b)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+                      title="Edit Budget"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(b)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      title="Delete Budget"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
@@ -282,13 +306,13 @@ export default function Budgets() {
         )}
       </div>
 
-      {/* Set / Edit Budget Modal */}
+      {/* Add / Edit Budget Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
               <h3 className="text-lg font-bold text-white tracking-tight">
-                {editingBudget ? 'Edit Budget' : 'Set Category Budget'}
+                {editingBudget ? 'Edit Category Budget' : 'Set Category Budget'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -327,18 +351,21 @@ export default function Budgets() {
 
               <div>
                 <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                  Monthly Budget Amount ($) *
+                  Monthly Budget Amount (₹) *
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={formAmount}
-                  onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="500.00"
-                  required
-                  className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3.5 py-2.5 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500"
-                />
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-gray-400 font-mono text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={formAmount}
+                    onChange={(e) => setFormAmount(e.target.value)}
+                    placeholder="500.00"
+                    required
+                    className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <div className="p-3 rounded-xl bg-[#1A2234] border border-[#2D3748] text-gray-400 text-[11px]">
@@ -372,6 +399,20 @@ export default function Budgets() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation In-App Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteBudgetItem)}
+        title="Delete Budget"
+        message={`Are you sure you want to remove the monthly budget of ${
+          deleteBudgetItem ? formatCurrency(deleteBudgetItem.budgetAmount) : ''
+        } for "${deleteBudgetItem?.categoryName || 'this category'}"?`}
+        confirmText="Delete Budget"
+        variant="danger"
+        loading={deleting}
+        onConfirm={confirmDeleteBudget}
+        onCancel={() => setDeleteBudgetItem(null)}
+      />
     </div>
   );
 }

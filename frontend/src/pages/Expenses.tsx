@@ -10,10 +10,13 @@ import {
   Loader2,
   Receipt,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import Header from '../components/Header';
 import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useToast } from '../context/ToastContext';
 import { expenseService, ExpensePayload } from '../services/expenseService';
 import { categoryService } from '../services/categoryService';
 import { Expense, Category } from '../types';
@@ -21,6 +24,8 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { formatDate } from '../utils/dateUtils';
 
 export default function Expenses() {
+  const { showSuccess, showError } = useToast();
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +44,10 @@ export default function Expenses() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Delete Dialog State
+  const [deleteExpenseItem, setDeleteExpenseItem] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Form Fields
   const [formDescription, setFormDescription] = useState('');
@@ -137,8 +146,10 @@ export default function Expenses() {
     try {
       if (editingExpense) {
         await expenseService.updateExpense(editingExpense.expenseId, payload);
+        showSuccess('Expense updated successfully');
       } else {
         await expenseService.createExpense(payload);
+        showSuccess('Expense recorded successfully');
       }
       setIsModalOpen(false);
       loadExpenses();
@@ -150,15 +161,24 @@ export default function Expenses() {
     }
   };
 
-  // Handle Delete
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this expense?')) return;
+  // Trigger Delete Confirmation
+  const handleDeleteClick = (exp: Expense) => {
+    setDeleteExpenseItem(exp);
+  };
+
+  const confirmDeleteExpense = async () => {
+    if (!deleteExpenseItem) return;
+    setDeleting(true);
     try {
-      await expenseService.deleteExpense(id);
+      await expenseService.deleteExpense(deleteExpenseItem.expenseId);
+      showSuccess('Expense deleted successfully');
+      setDeleteExpenseItem(null);
       loadExpenses();
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } } };
-      alert(errorObj.response?.data?.message || 'Failed to delete expense.');
+      showError(errorObj.response?.data?.message || 'Failed to delete expense.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -172,6 +192,10 @@ export default function Expenses() {
     setSortOrder('desc');
   };
 
+  const hasActiveFilters = Boolean(
+    search || selectedCategory || startDate || endDate || sortBy !== 'date' || sortOrder !== 'desc'
+  );
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0B0F19]">
       <Header
@@ -180,20 +204,21 @@ export default function Expenses() {
         actions={
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all cursor-pointer"
+            className="px-3 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Expense</span>
+            <span className="hidden sm:inline">Add Expense</span>
+            <span className="sm:hidden">Add</span>
           </button>
         }
       />
 
-      <div className="flex-1 p-8 overflow-y-auto space-y-6">
+      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
         {/* Filters & Search Toolbar */}
-        <div className="p-5 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-md space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Search Input */}
-            <div className="lg:col-span-2 relative">
+            <div className="sm:col-span-2 relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
               <input
                 type="text"
@@ -245,10 +270,10 @@ export default function Expenses() {
 
           {/* Sort & Reset Row */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1E293B] text-xs">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="text-gray-400 font-medium flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                Sort By:
+                <span>Sort by:</span>
               </span>
               <select
                 value={sortBy}
@@ -257,10 +282,7 @@ export default function Expenses() {
               >
                 <option value="date">Date</option>
                 <option value="amount">Amount</option>
-                <option value="description">Description</option>
-                <option value="category">Category</option>
               </select>
-
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
@@ -271,40 +293,45 @@ export default function Expenses() {
               </select>
             </div>
 
-            {(search || selectedCategory || startDate || endDate || sortBy !== 'date' || sortOrder !== 'desc') && (
+            {hasActiveFilters && (
               <button
                 onClick={handleResetFilters}
-                className="text-xs text-gray-400 hover:text-blue-400 transition-colors cursor-pointer"
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 font-medium px-2 py-1 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
               >
-                Reset Filters
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset Filters</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Expenses Table */}
+        {/* Expenses List Card */}
         <div className="rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl overflow-hidden">
           {error && (
-            <div className="p-4 bg-rose-500/10 border-b border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+            <div className="p-4 bg-rose-500/10 border-b border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {loading ? (
-            <LoadingState message="Fetching expenses from database..." minHeight="min-h-[300px]" />
+            <LoadingState message="Loading your expenses..." minHeight="min-h-[350px]" />
           ) : expenses.length === 0 ? (
             <EmptyState
-              title="No expenses found"
-              description="No transactions match your current filters or date range."
-              actionText="Record New Expense"
-              onAction={handleOpenAdd}
+              title={hasActiveFilters ? 'No matching expenses' : 'No expenses recorded'}
+              description={
+                hasActiveFilters
+                  ? 'No records match your selected filters. Try broadening your criteria.'
+                  : 'Start tracking by recording your first expense transaction.'
+              }
+              actionText={hasActiveFilters ? 'Reset Filters' : 'Record New Expense'}
+              onAction={hasActiveFilters ? handleResetFilters : handleOpenAdd}
               icon={Receipt}
               minHeight="min-h-[280px]"
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[600px]">
                 <thead>
                   <tr className="border-b border-[#1E293B] bg-[#0F172A]/80 text-[11px] font-semibold uppercase text-gray-400">
                     <th className="py-3.5 pl-6">Date</th>
@@ -345,7 +372,7 @@ export default function Expenses() {
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(exp.expenseId)}
+                            onClick={() => handleDeleteClick(exp)}
                             title="Delete Expense"
                             className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                           >
@@ -364,7 +391,7 @@ export default function Expenses() {
 
       {/* Add / Edit Expense Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#111827] border border-[#1E293B] rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
               <h3 className="text-lg font-bold text-white tracking-tight">
@@ -388,18 +415,21 @@ export default function Expenses() {
             <form onSubmit={handleFormSubmit} className="mt-4 space-y-4 text-xs">
               <div>
                 <label className="block font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                  Amount ($) *
+                  Amount (₹) *
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={formAmount}
-                  onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="0.00"
-                  required
-                  className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl px-3.5 py-2.5 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500"
-                />
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-gray-400 font-mono text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={formAmount}
+                    onChange={(e) => setFormAmount(e.target.value)}
+                    placeholder="0.00"
+                    required
+                    className="w-full bg-[#1A2234] border border-[#2D3748] rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
@@ -493,6 +523,20 @@ export default function Expenses() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation In-App Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteExpenseItem)}
+        title="Delete Expense"
+        message={`Are you sure you want to delete this expense of ${
+          deleteExpenseItem ? formatCurrency(deleteExpenseItem.amount) : ''
+        } for "${deleteExpenseItem?.categoryName || 'General'}"? This action cannot be undone.`}
+        confirmText="Delete Expense"
+        variant="danger"
+        loading={deleting}
+        onConfirm={confirmDeleteExpense}
+        onCancel={() => setDeleteExpenseItem(null)}
+      />
     </div>
   );
 }

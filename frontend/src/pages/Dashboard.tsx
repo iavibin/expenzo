@@ -91,7 +91,7 @@ export default function Dashboard() {
         onYearChange={setYear}
       />
 
-      <div className="flex-1 p-8 overflow-y-auto space-y-8">
+      <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8">
         {error && (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -298,7 +298,7 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analytics?.monthlySpending} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <XAxis dataKey="month" stroke="#64748B" fontSize={11} tickLine={false} />
-                      <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                      <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(val) => `₹${val}`} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: '#1E293B',
@@ -332,7 +332,7 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={analytics?.monthlySpending} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <XAxis dataKey="month" stroke="#64748B" fontSize={11} tickLine={false} />
-                      <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                      <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(val) => `₹${val}`} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: '#1E293B',

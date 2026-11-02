@@ -1,22 +1,32 @@
+import { useState } from 'react';
 import { User, Mail, ShieldCheck, Database, Server, LogOut } from 'lucide-react';
 import Header from '../components/Header';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login');
+    setLoggingOut(true);
+    try {
+      await logout();
+      navigate('/login');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0B0F19]">
       <Header title="Account Settings" subtitle="User profile and backend system configuration" />
 
-      <div className="flex-1 p-8 overflow-y-auto max-w-4xl space-y-6">
+      <div className="flex-1 p-4 sm:p-8 overflow-y-auto max-w-4xl space-y-6">
         {/* Profile Card */}
         <div className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl space-y-6">
           <div className="flex items-center gap-4">
@@ -56,12 +66,12 @@ export default function Settings() {
         <div className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl space-y-4">
           <h4 className="text-base font-bold text-white tracking-tight">System & Architecture</h4>
           <p className="text-xs text-gray-400">
-            Expenzo 2.0 dual architecture running lightweight Java backend with MySQL 8.0 storage.
+            Expenzo dual architecture running lightweight Java backend with MySQL 8.0 storage.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-2">
             <div className="p-3.5 rounded-xl bg-[#1A2234] border border-[#2D3748] flex items-center gap-2.5">
-              <Server className="w-4 h-4 text-emerald-400" />
+              <Server className="w-4 h-4 text-emerald-400 shrink-0" />
               <div>
                 <p className="text-[10px] text-gray-400 font-semibold uppercase">Backend API</p>
                 <p className="text-gray-200 font-medium">Java 17 HttpServer</p>
@@ -69,7 +79,7 @@ export default function Settings() {
             </div>
 
             <div className="p-3.5 rounded-xl bg-[#1A2234] border border-[#2D3748] flex items-center gap-2.5">
-              <Database className="w-4 h-4 text-blue-400" />
+              <Database className="w-4 h-4 text-blue-400 shrink-0" />
               <div>
                 <p className="text-[10px] text-gray-400 font-semibold uppercase">Database</p>
                 <p className="text-gray-200 font-medium">MySQL 8.0 (JDBC)</p>
@@ -77,7 +87,7 @@ export default function Settings() {
             </div>
 
             <div className="p-3.5 rounded-xl bg-[#1A2234] border border-[#2D3748] flex items-center gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-purple-400" />
+              <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
               <div>
                 <p className="text-[10px] text-gray-400 font-semibold uppercase">Frontend</p>
                 <p className="text-gray-200 font-medium">React + Vite + TS</p>
@@ -87,20 +97,32 @@ export default function Settings() {
         </div>
 
         {/* Logout Section */}
-        <div className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex items-center justify-between">
+        <div className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h4 className="text-base font-bold text-white tracking-tight">Sign Out</h4>
             <p className="text-xs text-gray-400 mt-0.5">End your current session and return to login</p>
           </div>
           <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
           </button>
         </div>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showLogoutConfirm}
+        title="Sign Out Confirmation"
+        message="Are you sure you want to end your session and sign out of Expenzo?"
+        confirmText="Sign Out"
+        variant="warning"
+        loading={loggingOut}
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 }
